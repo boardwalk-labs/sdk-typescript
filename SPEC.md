@@ -23,7 +23,7 @@ The SDK has **zero engine knowledge**: no scheduling, no process management, no 
 function agent<T = string>(prompt: string, opts?: AgentOptions): Promise<T>;
 
 interface AgentOptions {
-  model?: string; // "<provider>/<model-id>"; model-id may itself contain "/" or ":".
+  model?: string; // OPAQUE, passed VERBATIM to the provider — never parsed or prefixed.
   // Omitted → the provider routes automatically (the default `boardwalk` provider's Auto lane).
   provider?: string; // Who fulfills the call. Default `boardwalk` on EVERY engine; BYO keys only when explicitly named.
   schema?: JsonSchema; // Validates parsed JSON output; run fails on mismatch.
@@ -65,7 +65,7 @@ const config: Readonly<Record<string, JsonValue>>; // deploy-time configuration
 function Phase(name: string, opts?: { id?: string }): void; // named phase boundary in the run log
 ```
 
-**v1 change from pre-release:** `AgentOptions.model` becomes **optional** (was required). Explicit refs behave exactly as before; omission routes automatically through the default provider. **Default provider = `boardwalk` on every engine (decided 2026-06-11):** local engines reach the managed lane via the hosted inference gateway with the `boardwalk login` account (logged out → actionable error: log in, or name a provider); BYO keys are used only when the call or engine config names a non-`boardwalk` provider. The model ref's vendor prefix names the model, never the credentials.
+**v1 change from pre-release:** `AgentOptions.model` becomes **optional** (was required), and `provider`/`model` are fully **orthogonal** (decided 2026-06-12): `provider` picks who fulfills the call; `model` is an opaque string passed **verbatim** to that provider — engines never parse, prefix, or rewrite it, and nothing in the model string ever selects credentials. **Default provider = `boardwalk` on every engine:** omission of `model` routes automatically through the managed lane, which works when the engine holds a Boardwalk credential (hosted: ambient; local engines: `BOARDWALK_API_KEY` / the `boardwalk login` account where a login flow exists) — otherwise an actionable error names every fix (set the credential, or name a provider). BYO keys are used only when the call names a non-`boardwalk` provider explicitly.
 
 **Planned (not v1):** `shell(cmd, opts?)` — exec convenience that streams output into the run event log. Until then programs use `child_process` directly; stdout/stderr are captured into the run log either way.
 

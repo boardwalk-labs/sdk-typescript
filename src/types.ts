@@ -37,10 +37,12 @@ export interface ToolDef {
  */
 export interface AgentOptions {
   /**
-   * Model ref `<vendor>/<model-id>` (the model-id may itself contain `/` or `:`), e.g.
-   * `anthropic/claude-sonnet-4.5`. OPTIONAL — when omitted, the provider routes automatically
-   * (the default `boardwalk` provider's Auto lane). The vendor prefix names the MODEL, not the
-   * credentials — fulfillment is chosen by `provider`.
+   * The model, as an OPAQUE string passed VERBATIM to the provider — engines never parse,
+   * prefix, or rewrite it. Use whatever identifier your provider expects (e.g.
+   * `claude-sonnet-4-5` for Anthropic; `anthropic/sonnet-4.5` if that's what your local
+   * server serves it as). OPTIONAL — when omitted, the provider routes automatically (the
+   * default `boardwalk` provider's Auto lane). Fulfillment is chosen by `provider`, never
+   * by anything in this string.
    */
   model?: string;
   /**
