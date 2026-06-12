@@ -1,4 +1,4 @@
-# SPEC — `boardwalk-sdk` (`@boardwalk-labs/workflow`)
+# SPEC — `sdk` (`@boardwalk-labs/workflow`)
 
 > The authoring contract. Everything a workflow program can import, the manifest schema, and the run-event wire format. MIT. Public in **Phase 1**.
 >
