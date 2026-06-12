@@ -9,7 +9,7 @@ describe("extractMetaLiteral", () => {
         triggers: [{ kind: "manual" }],
         budget: { max_usd: 2.5 },
       };
-      export default async function run() {}
+      const x = await fetch("https://example.com"); // program body — irrelevant to extraction
     `;
     expect(extractMetaLiteral(src)).toEqual({
       name: "hello",
@@ -60,7 +60,7 @@ describe("extractMetaLiteral", () => {
   });
 
   it("rejects a program with no meta", () => {
-    expect(() => extractMetaLiteral("export default async function run() {}")).toThrow(
+    expect(() => extractMetaLiteral('console.log("a program with no meta");')).toThrow(
       /No `meta` declaration/,
     );
   });

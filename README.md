@@ -12,18 +12,16 @@ export const meta = {
   secrets: [{ name: "GITHUB_TOKEN" }],
 } satisfies WorkflowMeta;
 
-export default async function run(): Promise<void> {
-  const token = await secrets.get("GITHUB_TOKEN");
-  const issues = await fetch("https://api.github.com/issues", {
-    headers: { Authorization: `Bearer ${token}` },
-  }).then((r) => r.text());
+const token = await secrets.get("GITHUB_TOKEN");
+const issues = await fetch("https://api.github.com/issues", {
+  headers: { Authorization: `Bearer ${token}` },
+}).then((r) => r.text());
 
-  const summary = await agent(`Summarize for a morning digest:\n${issues}`);
-  output(summary);
-}
+const summary = await agent(`Summarize for a morning digest:\n${issues}`);
+output(summary);
 ```
 
-The `meta` export is a **pure literal** — engines derive the workflow's manifest from it statically, without executing your code. The program body is ordinary TypeScript: any import, any control flow, any npm dependency.
+A workflow is **a script**: the `meta` export is a **pure literal** (engines derive the manifest from it statically, without executing your code), and the module body is the program — importing the file is running it. Top-level `await` is the norm; `output(value)` declares the result. Ordinary TypeScript throughout: any import, any control flow, any npm dependency.
 
 ## What's in this package
 
