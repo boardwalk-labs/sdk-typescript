@@ -1,0 +1,96 @@
+import { describe, expect, it } from "vitest";
+import {
+  channelOf,
+  CHANNELS,
+  DEFAULT_CHANNELS,
+  makeCursor,
+  matchesChannels,
+  runEventSchema,
+  TURN_CURSOR_STRIDE,
+  type RunEvent,
+} from "./events.js";
+
+const ENVELOPE = { runId: "run_1", turnId: "turn_1", seq: 1, t: 1_770_000_000_000 };
+
+describe("cursor", () => {
+  it("derives a run-global monotonic cursor from (turn, seq)", () => {
+    expect(makeCursor(0, 1)).toBe(1);
+    expect(makeCursor(0, 999_999)).toBe(999_999);
+    expect(makeCursor(1, 1)).toBe(TURN_CURSOR_STRIDE + 1);
+    expect(makeCursor(2, 5)).toBeGreaterThan(makeCursor(1, 999_999));
+  });
+
+  it("rejects out-of-range inputs (seq is 1-based)", () => {
+    expect(() => makeCursor(0, 0)).toThrow(RangeError);
+    expect(() => makeCursor(-1, 1)).toThrow(RangeError);
+    expect(() => makeCursor(0, TURN_CURSOR_STRIDE)).toThrow(RangeError);
+    expect(() => makeCursor(0.5, 1)).toThrow(RangeError);
+  });
+});
+
+describe("schema round-trips", () => {
+  const samples: RunEvent[] = [
+    { ...ENVELOPE, kind: "run_status", status: "running" },
+    {
+      ...ENVELOPE,
+      kind: "run_status",
+      status: "failed",
+      error: { code: "BUDGET_EXCEEDED", message: "max_usd reached" },
+    },
+    { ...ENVELOPE, kind: "phase", name: "plan", id: "p1" },
+    { ...ENVELOPE, kind: "output", value: { answer: 42 } },
+    { ...ENVELOPE, kind: "program_output", stream: "stdout", text: "hello\n" },
+    { ...ENVELOPE, kind: "turn_started" },
+    {
+      ...ENVELOPE,
+      kind: "turn_ended",
+      reason: "complete",
+      usage: { inputTokens: 100, outputTokens: 20 },
+    },
+    { ...ENVELOPE, kind: "text_delta", blockId: "b1", text: "chunk" },
+    { ...ENVELOPE, kind: "tool_call_start", toolCallId: "tc1", toolName: "web_search" },
+    {
+      ...ENVELOPE,
+      kind: "tool_call_result",
+      toolCallId: "tc1",
+      result: { kind: "search", humanSummary: "3 hits", data: { hits: 3 } },
+    },
+    { ...ENVELOPE, kind: "reasoning_delta", text: "thinking…" },
+  ];
+
+  it.each(samples.map((s) => [s.kind, s] as const))("round-trips %s with toEqual", (_kind, ev) => {
+    expect(runEventSchema.parse(ev)).toEqual(ev);
+  });
+
+  it("rejects unknown kinds and extra fields", () => {
+    expect(() => runEventSchema.parse({ ...ENVELOPE, kind: "nope" })).toThrow();
+    expect(() => runEventSchema.parse({ ...ENVELOPE, kind: "turn_started", extra: 1 })).toThrow();
+  });
+});
+
+describe("channels", () => {
+  it("maps every event kind to exactly one channel", () => {
+    const kinds = runEventSchema.options.map((o) => o.shape.kind.value);
+    for (const kind of kinds) {
+      expect(CHANNELS).toContain(channelOf({ kind }));
+    }
+  });
+
+  it("classifies the load-bearing kinds correctly", () => {
+    expect(channelOf({ kind: "run_status" })).toBe("lifecycle");
+    expect(channelOf({ kind: "phase" })).toBe("phase");
+    expect(channelOf({ kind: "output" })).toBe("output");
+    expect(channelOf({ kind: "program_output" })).toBe("log");
+    expect(channelOf({ kind: "text_delta" })).toBe("agent");
+    expect(channelOf({ kind: "tool_call_result" })).toBe("agent");
+  });
+
+  it("matchesChannels implements the subscription filter; defaults are quiet", () => {
+    const statusEv = { kind: "run_status" } as const;
+    const agentEv = { kind: "text_delta" } as const;
+    expect(matchesChannels(statusEv, DEFAULT_CHANNELS)).toBe(true);
+    expect(matchesChannels(agentEv, DEFAULT_CHANNELS)).toBe(false);
+    expect(matchesChannels(agentEv, [...CHANNELS])).toBe(true);
+    expect(matchesChannels(statusEv, ["output"])).toBe(false);
+  });
+});

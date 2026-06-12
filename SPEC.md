@@ -23,35 +23,46 @@ The SDK has **zero engine knowledge**: no scheduling, no process management, no 
 function agent<T = string>(prompt: string, opts?: AgentOptions): Promise<T>;
 
 interface AgentOptions {
-  model?: string;             // "<provider>/<model-id>"; model-id may itself contain "/" or ":".
-                              // Omitted → engine-dependent resolution (MASTER_SPEC §4).
-  provider?: string;          // Named inference provider; default: managed lane on Cloud, env-key locally.
-  schema?: JsonSchema;        // Validates parsed JSON output; run fails on mismatch.
-  tools?: readonly (string | ToolDef)[];  // Selection from meta.tools by name, plus inline program-defined tools.
-  mcp?: readonly string[];    // Selection from meta.mcp by server name.
+  model?: string; // "<provider>/<model-id>"; model-id may itself contain "/" or ":".
+  // Omitted → engine-dependent resolution (MASTER_SPEC §4).
+  provider?: string; // Named inference provider; default: managed lane on Cloud, env-key locally.
+  schema?: JsonSchema; // Validates parsed JSON output; run fails on mismatch.
+  tools?: readonly (string | ToolDef)[]; // Selection from meta.tools by name, plus inline program-defined tools.
+  mcp?: readonly string[]; // Selection from meta.mcp by server name.
   skills?: readonly string[]; // Selection from meta.skills by name.
-  memory?: string;            // Workspace-relative path to a directory declared in meta.workspace.persist.
+  memory?: string; // Workspace-relative path to a directory declared in meta.workspace.persist.
 }
 
 const workflows: {
-  call(slug: string, input: unknown, opts?: CallOptions): Promise<unknown>;  // durable, awaits child result
-  run(slug: string, input: unknown, opts?: CallOptions): Promise<string>;    // fire-and-forget, returns child run id
+  call(slug: string, input: unknown, opts?: CallOptions): Promise<unknown>; // durable, awaits child result
+  run(slug: string, input: unknown, opts?: CallOptions): Promise<string>; // fire-and-forget, returns child run id
 };
-interface CallOptions { idempotencyKey?: string }  // default: deterministic hash(parent run, target, input)
+interface CallOptions {
+  idempotencyKey?: string;
+} // default: deterministic hash(parent run, target, input)
 
 function sleep(arg: number | { durationMs: number } | { until: string | Date }): Promise<void>;
 
-const secrets: { get(name: string): Promise<string> };       // name must appear in meta.secrets
+const secrets: { get(name: string): Promise<string> }; // name must appear in meta.secrets
 const artifacts: {
-  write(name: string, contentType: string, body: ArtifactBody, metadata?: Record<string, unknown>): Promise<ArtifactRef>;
+  write(
+    name: string,
+    contentType: string,
+    body: ArtifactBody,
+    metadata?: Record<string, unknown>,
+  ): Promise<ArtifactRef>;
 };
-interface ArtifactRef { id: string; name: string; url: string }
+interface ArtifactRef {
+  id: string;
+  name: string;
+  url: string;
+}
 
 function parallel<T>(thunks: readonly (() => Promise<T>)[]): Promise<T[]>;
-function output(value: JsonValue): void;     // the run's declared result; validated against meta.output_schema
-const input: unknown;                        // live binding: the trigger payload; validated against meta.input_schema
-const config: Readonly<Record<string, JsonValue>>;  // deploy-time configuration
-function Phase(name: string, opts?: { id?: string }): void;  // named phase boundary in the run log
+function output(value: JsonValue): void; // the run's declared result; validated against meta.output_schema
+const input: unknown; // live binding: the trigger payload; validated against meta.input_schema
+const config: Readonly<Record<string, JsonValue>>; // deploy-time configuration
+function Phase(name: string, opts?: { id?: string }): void; // named phase boundary in the run log
 ```
 
 **v1 change from pre-release:** `AgentOptions.model` becomes **optional** (was required). Explicit refs behave exactly as before; omission defers to the engine (Cloud: automatic routing; local: configured default or a helpful error).
@@ -78,16 +89,16 @@ interface ToolDef {
 }
 ```
 
-- **Tools:** built-in grants by name + inline `ToolDef`s whose `execute` runs in the program process (the trusted layer — it may use `secrets.get`; only its *return value* enters model context, subject to redaction).
+- **Tools:** built-in grants by name + inline `ToolDef`s whose `execute` runs in the program process (the trusted layer — it may use `secrets.get`; only its _return value_ enters model context, subject to redaction).
 - **MCP:** the loop connects to declared MCP servers and exposes their tools to the model. Server commands/URLs may reference `${{ secrets.NAME }}` in `env`.
 - **Skills:** user-authored markdown loaded into the loop's context on demand by name.
-- **Memory is not a separate system — it is a persistent directory.** `meta.workspace.persist` declares which workspace-relative directories survive across runs; `agent(prompt, { memory: "memory/triager" })` points the loop at one of them. The loop gets read/write file tools scoped to that directory and loads its index into context at turn start; the *program* may read/write the same files in plain code (seed it, inspect it, prune it). Multiple agents may use separate directories or share one. Rules: paths are workspace-relative; `..` (or any escape) is a validation error; `opts.memory` must name a declared persistent directory (or any path when `persist: true`).
+- **Memory is not a separate system — it is a persistent directory.** `meta.workspace.persist` declares which workspace-relative directories survive across runs; `agent(prompt, { memory: "memory/triager" })` points the loop at one of them. The loop gets read/write file tools scoped to that directory and loads its index into context at turn start; the _program_ may read/write the same files in plain code (seed it, inspect it, prune it). Multiple agents may use separate directories or share one. Rules: paths are workspace-relative; `..` (or any escape) is a validation error; `opts.memory` must name a declared persistent directory (or any path when `persist: true`).
 - Per-call selection defaults to **none** (a plain `agent(prompt)` is still just inference); naming anything not declared on `meta` is a validation error.
 - Secret-redaction (MASTER_SPEC §6.2) applies to all of it: tool args/results, MCP traffic, skill content, and memory content are scrubbed of known secret values before reaching the model.
 
 ### 2.2 `meta` / manifest — v1 core fields
 
-See MASTER_SPEC §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK_*`/`AWS_*` reserved), `input_schema`, `output_schema`, `workspace.persist` (`true | string[]` — also the memory mechanism, §2.1.1), `budget` (`max_usd`/`max_tokens`/`max_duration_seconds`), `concurrency`, `tools`, `mcp`, `skills`, `runs_on`.
+See MASTER*SPEC §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK*_`/`AWS\__`reserved),`input_schema`, `output_schema`, `workspace.persist` (`true | string[]`— also the memory mechanism, §2.1.1),`budget` (`max_usd`/`max_tokens`/`max_duration_seconds`), `concurrency`, `tools`, `mcp`, `skills`, `runs_on`.
 
 **Cloud-extension fields** (in the schema, enforced only on Boardwalk Cloud, documented as such): `permissions`, `egress`, `callable_by`, `notifications`, `container`. Engines without the capability fail validation loudly when a workflow requires it (capability-presence rule, MASTER_SPEC §4).
 
@@ -111,8 +122,13 @@ interface WorkflowHost {
   callWorkflow(req: CallRequest): Promise<CallResult>;
   getSecret(name: string): Promise<string>;
   writeArtifact(req: ArtifactRequest): Promise<ArtifactRef>;
-  emitEvent(event: RunEventInput): void;   // Phase boundaries, output, lifecycle hooks
-  context: { runId: RunId; workflow: ManifestRef; input: unknown; config: Record<string, JsonValue> };
+  emitEvent(event: RunEventInput): void; // Phase boundaries, output, lifecycle hooks
+  context: {
+    runId: RunId;
+    workflow: ManifestRef;
+    input: unknown;
+    config: Record<string, JsonValue>;
+  };
 }
 ```
 
