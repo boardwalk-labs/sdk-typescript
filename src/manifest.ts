@@ -141,9 +141,10 @@ const concurrencySchema = z.union([
 ]);
 
 // ============================================================================
-// Agent capabilities: tools, MCP, skills
+// Agent capabilities: MCP servers (tools/skills/memory are per-agent — no manifest fields)
 // ============================================================================
 
+// Used only by the platform-extension permissions.tools (hosted run-permission scoping).
 const toolGrantSchema = z.strictObject({
   name: shortName,
   config: z.record(z.string(), z.unknown()).optional(),
@@ -250,9 +251,8 @@ export const workflowManifestSchema = z.strictObject({
   workspace: workspaceSchema.optional(),
   budget: budgetSchema.optional(),
   concurrency: concurrencySchema.default({ mode: "unlimited" }),
-  tools: z.array(toolGrantSchema).default([]),
+  // Tools, skills, and memory are PER-AGENT (AgentOptions), not manifest fields.
   mcp: z.array(mcpServerSchema).default([]),
-  skills: z.array(shortName).default([]),
   runs_on: runsOnSchema.default("boardwalk/linux"),
   // Platform-extension fields.
   container: containerSchema.optional(),

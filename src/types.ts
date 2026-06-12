@@ -29,21 +29,23 @@ export interface ToolDef {
 }
 
 /**
- * Options for an {@link import("./index.js").agent} leaf call. All capability selections
- * (`tools`, `mcp`, `skills`, `memory`) must reference declarations on the workflow's `meta`;
- * a plain `agent(prompt)` is simple inference.
+ * Options for an {@link import("./index.js").agent} leaf call. Capabilities are PER-AGENT:
+ * each call brings its own `tools`, `skills`, and `memory` — no meta declaration. Only `mcp`
+ * names servers declared on `meta` (deploy-time infrastructure: commands, URLs, secret-bearing
+ * env). A plain `agent(prompt)` is simple inference.
  */
 export interface AgentOptions {
   /**
-   * Model ref `<provider>/<model-id>` (the model-id may itself contain `/` or `:`), e.g.
-   * `anthropic/claude-sonnet-4.5`. OPTIONAL — when omitted, resolution is engine-dependent:
-   * hosted Boardwalk routes automatically; a local engine uses its configured default model
-   * (or fails with a pointer to the config).
+   * Model ref `<vendor>/<model-id>` (the model-id may itself contain `/` or `:`), e.g.
+   * `anthropic/claude-sonnet-4.5`. OPTIONAL — when omitted, the provider routes automatically
+   * (the default `boardwalk` provider's Auto lane). The vendor prefix names the MODEL, not the
+   * credentials — fulfillment is chosen by `provider`.
    */
   model?: string;
   /**
-   * Inference provider for this leaf — the NAME of a provider configured on the engine, or
-   * `boardwalk` for Boardwalk-managed inference. OPTIONAL. Routing only.
+   * Who fulfills this leaf. Defaults to `boardwalk` (Boardwalk-managed inference) on EVERY
+   * engine; your own keys are used only when this names a non-`boardwalk` provider — a
+   * built-in vendor (`anthropic`, `openai`, …) or a provider configured on the engine.
    */
   provider?: string;
   /**
@@ -52,18 +54,23 @@ export interface AgentOptions {
    */
   schema?: JsonSchema;
   /**
-   * Tools this leaf may use: names granted in `meta.tools`, plus inline program-defined
-   * {@link ToolDef}s. Defaults to none.
+   * Tools this leaf may use: engine built-in names, plus inline program-defined
+   * {@link ToolDef}s. Per-agent — no meta declaration. Defaults to none.
    */
   tools?: readonly (string | ToolDef)[];
   /** MCP servers (by `meta.mcp` name) whose tools this leaf may use. Defaults to none. */
   mcp?: readonly string[];
-  /** Skills (by `meta.skills` name) loadable into this leaf's context. Defaults to none. */
+  /**
+   * Skills loadable into this leaf's context, by name — resolved from the `skills/` directory
+   * deployed alongside the program (`skills/<name>.md`). Per-agent. Defaults to none.
+   */
   skills?: readonly string[];
   /**
-   * The leaf's persistent memory: a workspace-relative directory declared in
-   * `meta.workspace.persist`. The loop gets read/write file tools scoped to that directory and
-   * loads its index at turn start; the directory survives across runs.
+   * The leaf's persistent memory: a workspace-relative directory. Per-agent — the engine
+   * persists it across runs automatically (no `workspace.persist` declaration needed). The
+   * loop gets read/write file tools scoped to that directory and loads its index at turn
+   * start; the program may read/write the same files in plain code. Agents may use separate
+   * directories or deliberately share one.
    */
   memory?: string;
 }

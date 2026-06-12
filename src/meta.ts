@@ -31,10 +31,18 @@ export interface ManualTrigger {
 export type Trigger = CronTrigger | WebhookTrigger | ManualTrigger;
 
 // ============================================================================
-// Agent capabilities: tools, MCP servers, skills
+// Agent capabilities: MCP servers
+//
+// Tools, skills, and memory are PER-AGENT, not per-workflow (decided 2026-06-11): each
+// agent() call brings its own (AgentOptions.tools/skills/memory) with no meta declaration.
+// MCP servers stay on meta because they are deploy-time infrastructure (commands, URLs,
+// secret-bearing env), still SELECTED per call by name.
 // ============================================================================
 
-/** A built-in tool grant — names a tool the engine provides, with optional configuration. */
+/**
+ * A built-in tool grant, with optional configuration. Used only by the platform-extension
+ * `permissions.tools` (hosted run-permission scoping) — agent tool selection is per-call.
+ */
 export interface ToolGrant {
   name: string;
   config?: Record<string, unknown>;
@@ -209,12 +217,11 @@ export interface WorkflowMeta {
   workspace?: Workspace;
   budget?: Budget;
   concurrency?: Concurrency;
-  /** Built-in tool grants available to `agent()` loops (selected per call). */
-  tools?: readonly ToolGrant[];
+  // NOTE: there are NO workflow-level `tools`/`skills` fields. Tools, skills, and memory are
+  // per-agent — each `agent()` call brings its own (see AgentOptions). Only MCP servers are
+  // declared here (deploy-time infrastructure), still selected per call by name.
   /** MCP servers available to `agent()` loops (selected per call by name). */
   mcp?: readonly McpServerRef[];
-  /** Skill names available to `agent()` loops (selected per call). */
-  skills?: readonly string[];
   runs_on?: RunsOn;
   // Platform-extension fields — validated everywhere, enforced where the capability exists.
   container?: Container;

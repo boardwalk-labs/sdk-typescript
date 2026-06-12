@@ -29,8 +29,8 @@ export interface WorkflowHost {
   setPhase?(name: string, opts: PhaseOptions | undefined): void;
   /**
    * Run an agent leaf to completion; resolve to its text (or schema-validated object).
-   * `opts.model` may be omitted — resolution is engine-dependent (the hosted platform routes; local engines
-   * use a configured default or fail with a pointer to the config).
+   * `opts.model` may be omitted — the provider routes automatically (default provider =
+   * `boardwalk` on every engine; BYO keys only when a provider is explicitly named).
    */
   agent(prompt: string, opts: AgentOptions | undefined): Promise<unknown>;
   /** Dispatch a durable child run and resolve to its output (parent holds while it runs). */

@@ -9,9 +9,7 @@ describe("workflowManifestSchema — core", () => {
     expect(m.name).toBe("hello");
     expect(m.triggers).toEqual([{ kind: "manual" }]);
     expect(m.concurrency).toEqual({ mode: "unlimited" });
-    expect(m.tools).toEqual([]);
     expect(m.mcp).toEqual([]);
-    expect(m.skills).toEqual([]);
     expect(m.runs_on).toBe("boardwalk/linux");
     expect(m.callable_by).toBe("anyone_in_org");
   });
@@ -29,9 +27,7 @@ describe("workflowManifestSchema — core", () => {
       workspace: { persist: ["memory/triager", "cache"] },
       budget: { max_usd: 2.5, max_duration_seconds: 600 },
       concurrency: { mode: "serial" },
-      tools: [{ name: "web_search" }],
       mcp: [{ name: "gh", transport: "stdio", command: "gh-mcp", args: ["--stdio"] }],
-      skills: ["triage-style"],
     };
     const m = workflowManifestSchema.parse(full);
     expect(m.secrets).toEqual([{ name: "GITHUB_TOKEN" }]);
@@ -43,6 +39,13 @@ describe("workflowManifestSchema — core", () => {
     expect(() => validateMeta({ ...MINIMAL, scripts: ["x"] })).toThrow(MetaValidationError);
     expect(() => validateMeta({ ...MINIMAL, memory: true })).toThrow(MetaValidationError);
     expect(() => validateMeta({ ...MINIMAL, instructions: "hi" })).toThrow(MetaValidationError);
+    // Dropped 2026-06-11: tools/skills are per-agent (AgentOptions), never manifest fields.
+    expect(() => validateMeta({ ...MINIMAL, tools: [{ name: "web_search" }] })).toThrow(
+      MetaValidationError,
+    );
+    expect(() => validateMeta({ ...MINIMAL, skills: ["triage-style"] })).toThrow(
+      MetaValidationError,
+    );
   });
 
   it("rejects bad names and missing triggers", () => {

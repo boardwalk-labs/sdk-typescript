@@ -24,13 +24,13 @@ function agent<T = string>(prompt: string, opts?: AgentOptions): Promise<T>;
 
 interface AgentOptions {
   model?: string; // "<provider>/<model-id>"; model-id may itself contain "/" or ":".
-  // Omitted → engine-dependent resolution (MASTER_SPEC §4).
-  provider?: string; // Named inference provider; default: managed lane on the platform, env-key locally.
+  // Omitted → the provider routes automatically (the default `boardwalk` provider's Auto lane).
+  provider?: string; // Who fulfills the call. Default `boardwalk` on EVERY engine; BYO keys only when explicitly named.
   schema?: JsonSchema; // Validates parsed JSON output; run fails on mismatch.
-  tools?: readonly (string | ToolDef)[]; // Selection from meta.tools by name, plus inline program-defined tools.
-  mcp?: readonly string[]; // Selection from meta.mcp by server name.
-  skills?: readonly string[]; // Selection from meta.skills by name.
-  memory?: string; // Workspace-relative path to a directory declared in meta.workspace.persist.
+  tools?: readonly (string | ToolDef)[]; // PER-AGENT: engine built-in names + inline program-defined tools.
+  mcp?: readonly string[]; // Selection from meta.mcp by server name (the one meta-declared capability).
+  skills?: readonly string[]; // PER-AGENT: skills/<name>.md deployed alongside the program.
+  memory?: string; // PER-AGENT: workspace-relative dir, auto-persisted across runs by the engine.
 }
 
 const workflows: {
@@ -65,20 +65,22 @@ const config: Readonly<Record<string, JsonValue>>; // deploy-time configuration
 function Phase(name: string, opts?: { id?: string }): void; // named phase boundary in the run log
 ```
 
-**v1 change from pre-release:** `AgentOptions.model` becomes **optional** (was required). Explicit refs behave exactly as before; omission defers to the engine (hosted platform: automatic routing; local: configured default or a helpful error).
+**v1 change from pre-release:** `AgentOptions.model` becomes **optional** (was required). Explicit refs behave exactly as before; omission routes automatically through the default provider. **Default provider = `boardwalk` on every engine (decided 2026-06-11):** local engines reach the managed lane via the hosted inference gateway with the `boardwalk login` account (logged out → actionable error: log in, or name a provider); BYO keys are used only when the call or engine config names a non-`boardwalk` provider. The model ref's vendor prefix names the model, never the credentials.
 
 **Planned (not v1):** `shell(cmd, opts?)` — exec convenience that streams output into the run event log. Until then programs use `child_process` directly; stdout/stderr are captured into the run log either way.
 
 ### 2.1.1 The `agent()` capability set (v1 — required, all engines)
 
-The loop is a real agentic loop, not bare inference. Capabilities are **declared on `meta`** (so the manifest stays the contract) and **selected per call**:
+The loop is a real agentic loop, not bare inference. **Capabilities are PER-AGENT (decided 2026-06-11): each `agent()` call brings its own tools, skills, and memory — there are NO `meta.tools`/`meta.skills` fields, and memory needs no `workspace.persist` declaration.** Only MCP servers live on `meta` (deploy-time infrastructure: commands, URLs, secret-bearing env), selected per call by name.
 
 ```ts
-// meta-level declarations
-tools?: readonly ToolGrant[];     // { name, config?, scope? } — built-in tool grants
+// the ONE meta-level capability declaration
 mcp?: readonly McpServerRef[];    // { name, transport: "stdio" | "http", command? | url?, env?: Record<string,string> }
-skills?: readonly string[];       // skill names; resolved by the engine (local: skills/ dir in the project; hosted: org skills)
-workspace?: { persist?: true | string[] };  // persistent dirs — ALSO the memory mechanism (see below)
+
+// everything else is per-agent, on AgentOptions:
+tools?: readonly (string | ToolDef)[];  // engine built-in names + inline program-defined tools
+skills?: readonly string[];             // skills/<name>.md deployed alongside the program
+memory?: string;                        // a workspace-relative dir, auto-persisted across runs
 
 // program-defined tools (inline in AgentOptions.tools)
 interface ToolDef {
@@ -89,16 +91,16 @@ interface ToolDef {
 }
 ```
 
-- **Tools:** built-in grants by name + inline `ToolDef`s whose `execute` runs in the program process (the trusted layer — it may use `secrets.get`; only its _return value_ enters model context, subject to redaction).
-- **MCP:** the loop connects to declared MCP servers and exposes their tools to the model. Server commands/URLs may reference `${{ secrets.NAME }}` in `env`.
-- **Skills:** user-authored markdown loaded into the loop's context on demand by name.
-- **Memory is not a separate system — it is a persistent directory.** `meta.workspace.persist` declares which workspace-relative directories survive across runs; `agent(prompt, { memory: "memory/triager" })` points the loop at one of them. The loop gets read/write file tools scoped to that directory and loads its index into context at turn start; the _program_ may read/write the same files in plain code (seed it, inspect it, prune it). Multiple agents may use separate directories or share one. Rules: paths are workspace-relative; `..` (or any escape) is a validation error; `opts.memory` must name a declared persistent directory (or any path when `persist: true`).
-- Per-call selection defaults to **none** (a plain `agent(prompt)` is still just inference); naming anything not declared on `meta` is a validation error.
+- **Tools:** engine built-in names + inline `ToolDef`s whose `execute` runs in the program process (the trusted layer — it may use `secrets.get`; only its _return value_ enters model context, subject to redaction). An unknown built-in name fails loudly at call time.
+- **MCP:** the loop connects to `meta.mcp` servers selected per call and exposes their tools to the model. Server commands/URLs may reference `${{ secrets.NAME }}` in `env`.
+- **Skills:** user-authored markdown loaded into the loop's context by name, resolved from the `skills/` directory deployed alongside the program (`skills/<name>.md`). A missing skill file fails loudly at call time.
+- **Memory is not a separate system — it is a persistent directory, per agent.** `agent(prompt, { memory: "memory/triager" })` points the loop at a workspace-relative directory; the **engine persists every memory directory automatically across runs** (hydrated at run start, written back at successful run end — no declaration anywhere). The loop gets read/write file tools scoped to that directory and loads its index into context at turn start; the _program_ may read/write the same files in plain code (seed it, inspect it, prune it). Multiple agents may use separate directories or deliberately share one. Rules: paths are workspace-relative; `..` (or any escape) is a validation error. `workspace.persist` remains the separate, program-level persistence knob for non-memory state.
+- Per-call selection defaults to **none** (a plain `agent(prompt)` is still just inference); an `mcp` name not declared on `meta`, an unknown built-in tool, or a missing skill file is a loud error, never silent degradation.
 - Secret-redaction (MASTER_SPEC §6.2) applies to all of it: tool args/results, MCP traffic, skill content, and memory content are scrubbed of known secret values before reaching the model.
 
 ### 2.2 `meta` / manifest — v1 core fields
 
-See MASTER*SPEC §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK*\_`/`AWS\_\_`reserved),`input_schema`, `output_schema`, `workspace.persist` (`true | string[]`— also the memory mechanism, §2.1.1),`budget` (`max_usd`/`max_tokens`/`max_duration_seconds`), `concurrency`, `tools`, `mcp`, `skills`, `runs_on`.
+See MASTER*SPEC §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK*\_`/`AWS\_\_`reserved),`input_schema`, `output_schema`, `workspace.persist` (`true | string[]` — program-level persistence; agent memory is auto-persisted separately, §2.1.1),`budget` (`max_usd`/`max_tokens`/`max_duration_seconds`), `concurrency`, `mcp`, `runs_on`. There are **no `tools`/`skills` manifest fields\*\* — those capabilities are per-agent (§2.1.1).
 
 **Platform-extension fields** (in the schema, enforced only on hosted Boardwalk, documented as such): `permissions`, `egress`, `callable_by`, `notifications`, `container`. Engines without the capability fail validation loudly when a workflow requires it (capability-presence rule, MASTER_SPEC §4).
 

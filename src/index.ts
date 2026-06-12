@@ -39,8 +39,8 @@ export function Phase(name: string, opts?: PhaseOptions): void {
  * Run an agent leaf to completion. Without `opts.schema`, resolves to the leaf's final text
  * (`T` defaults to `string`); with a schema, resolves to the validated object — pass the
  * expected type, e.g. `await agent<Groups>(prompt, { schema })`. Omit `opts.model` to let the
- * engine resolve the model (hosted Boardwalk routes automatically; local engines use their
- * configured default). Capability selections (`tools`, `mcp`, `skills`, `memory`) must
+ * provider route automatically (the default `boardwalk` provider on every engine; your own
+ * keys only via an explicit provider). Capability selections (`tools`, `mcp`, `skills`, `memory`) must
  * reference declarations on the workflow's `meta`.
  */
 export async function agent<T = string>(prompt: string, opts?: AgentOptions): Promise<T> {
