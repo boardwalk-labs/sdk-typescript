@@ -178,17 +178,19 @@ export interface Budget {
 }
 
 /**
- * Persistent directories — also the agent-memory mechanism.
+ * Persistent directories for the PROGRAM (not the same thing as agent memory).
  *
  * Every run gets a writable workspace directory that exists before your program runs; without
  * `persist` it is scratch space, discarded at run end. `persist: true` persists the whole
  * workspace across runs; a list persists exactly those WORKSPACE-RELATIVE subdirectories
- * (`"memory/triager"`, `"cache"`, …) — `..` or absolute paths are validation errors.
+ * (`"cache"`, `"index"`, …) — `..` or absolute paths are validation errors. Persisted
+ * directories are hydrated at run start and written back at successful run end; concurrent
+ * runs sharing one are last-writer-wins, so prefer `concurrency: { mode: "serial" }`.
  *
- * `agent(prompt, { memory: "<dir>" })` points a loop's memory at a declared persistent
- * directory; the program may read/write the same files in plain code. Declared directories are
- * hydrated at run start and persisted back at successful run end. Concurrent runs sharing a
- * persistent directory are last-writer-wins — prefer `concurrency: { mode: "serial" }`.
+ * Agent **memory** is separate and needs no declaration here: `agent(prompt, { memory: "<dir>" })`
+ * names any workspace-relative directory and the engine auto-persists it across runs (see
+ * {@link import("./types.js").AgentOptions}.memory). Use `workspace.persist` for non-memory
+ * state your program code manages directly.
  */
 export interface Workspace {
   persist?: boolean | readonly string[];

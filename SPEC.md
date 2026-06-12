@@ -98,7 +98,7 @@ interface ToolDef {
 
 ### 2.2 `meta` / manifest — v1 core fields
 
-See MASTER*SPEC §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK*\_`/`AWS\_\_`reserved),`input_schema`, `output_schema`, `workspace.persist` (`true | string[]` — program-level persistence; agent memory is auto-persisted separately, §2.1.1),`budget` (`max_usd`/`max_tokens`/`max_duration_seconds`), `concurrency`, `runs_on`. There are **no capability manifest fields** (`tools`/`mcp`/`skills`) — all agent capabilities are per-agent (§2.1.1).
+See [`MASTER_SPEC.md`](../MASTER_SPEC.md) §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK_*` / `AWS_*` reserved), `input_schema`, `output_schema`, `workspace.persist` (`true | string[]` — program-level persistence; agent memory is auto-persisted separately, §2.1.1), `budget` (`max_usd` / `max_tokens` / `max_duration_seconds`), `concurrency`, `runs_on`. There are **no capability manifest fields** (`tools` / `mcp` / `skills`) — all agent capabilities are per-agent (§2.1.1).
 
 **Platform-extension fields** (in the schema, enforced only on hosted Boardwalk, documented as such): `permissions`, `egress`, `callable_by`, `notifications`, `container`. Engines without the capability fail validation loudly when a workflow requires it (capability-presence rule, MASTER_SPEC §4).
 

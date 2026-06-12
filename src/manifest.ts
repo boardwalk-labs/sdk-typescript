@@ -105,7 +105,7 @@ const envVarsSchema = z
   });
 
 // ============================================================================
-// Workspace (persistent directories — also the agent-memory mechanism)
+// Workspace (program-level persistent directories; agent memory is separate + auto-persisted)
 // ============================================================================
 
 /** Workspace-relative, no escapes: rejects absolute paths, backslashes, `..` and `.` segments. */

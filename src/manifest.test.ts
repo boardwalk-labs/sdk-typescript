@@ -128,7 +128,7 @@ describe("workspace.persist", () => {
   });
 });
 
-describe("cloud-extension fields", () => {
+describe("platform-extension fields", () => {
   it("validates egress, callable_by, notifications round-trip with toEqual", () => {
     const m = validateMeta({
       ...MINIMAL,
