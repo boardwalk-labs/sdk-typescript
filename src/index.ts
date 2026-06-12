@@ -166,7 +166,12 @@ export type {
   JsonValue,
 } from "./types.js";
 
-export { workflowManifestSchema, validateMeta, type WorkflowManifest } from "./manifest.js";
+export {
+  workflowManifestSchema,
+  validateMeta,
+  MetaValidationError,
+  type WorkflowManifest,
+} from "./manifest.js";
 
 export {
   type RunEvent,
