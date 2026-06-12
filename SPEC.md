@@ -9,7 +9,7 @@
 `@boardwalk/workflow` is the only package a workflow author needs. It provides:
 
 1. **Primitives** — `agent()`, `sleep()`, `workflows.*`, `secrets.get()`, `artifacts.write()`, `parallel()`, `input`/`output()`/`config`, `Phase()`.
-2. **The `meta` type + manifest schema** — the Zod schema every engine and Boardwalk Cloud validate against; TS types derived from the schema, never hand-written.
+2. **The `meta` type + manifest schema** — the Zod schema every engine and hosted Boardwalk validate against; TS types derived from the schema, never hand-written.
 3. **The run-event wire format** — the typed event stream every engine emits.
 4. **The host interface** — the seam engines implement to back the primitives.
 
@@ -25,7 +25,7 @@ function agent<T = string>(prompt: string, opts?: AgentOptions): Promise<T>;
 interface AgentOptions {
   model?: string; // "<provider>/<model-id>"; model-id may itself contain "/" or ":".
   // Omitted → engine-dependent resolution (MASTER_SPEC §4).
-  provider?: string; // Named inference provider; default: managed lane on Cloud, env-key locally.
+  provider?: string; // Named inference provider; default: managed lane on the platform, env-key locally.
   schema?: JsonSchema; // Validates parsed JSON output; run fails on mismatch.
   tools?: readonly (string | ToolDef)[]; // Selection from meta.tools by name, plus inline program-defined tools.
   mcp?: readonly string[]; // Selection from meta.mcp by server name.
@@ -65,7 +65,7 @@ const config: Readonly<Record<string, JsonValue>>; // deploy-time configuration
 function Phase(name: string, opts?: { id?: string }): void; // named phase boundary in the run log
 ```
 
-**v1 change from pre-release:** `AgentOptions.model` becomes **optional** (was required). Explicit refs behave exactly as before; omission defers to the engine (Cloud: automatic routing; local: configured default or a helpful error).
+**v1 change from pre-release:** `AgentOptions.model` becomes **optional** (was required). Explicit refs behave exactly as before; omission defers to the engine (hosted platform: automatic routing; local: configured default or a helpful error).
 
 **Planned (not v1):** `shell(cmd, opts?)` — exec convenience that streams output into the run event log. Until then programs use `child_process` directly; stdout/stderr are captured into the run log either way.
 
@@ -77,7 +77,7 @@ The loop is a real agentic loop, not bare inference. Capabilities are **declared
 // meta-level declarations
 tools?: readonly ToolGrant[];     // { name, config?, scope? } — built-in tool grants
 mcp?: readonly McpServerRef[];    // { name, transport: "stdio" | "http", command? | url?, env?: Record<string,string> }
-skills?: readonly string[];       // skill names; resolved by the engine (local: skills/ dir in the project; Cloud: org skills)
+skills?: readonly string[];       // skill names; resolved by the engine (local: skills/ dir in the project; hosted: org skills)
 workspace?: { persist?: true | string[] };  // persistent dirs — ALSO the memory mechanism (see below)
 
 // program-defined tools (inline in AgentOptions.tools)
@@ -100,7 +100,7 @@ interface ToolDef {
 
 See MASTER*SPEC §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK*\_`/`AWS\_\_`reserved),`input_schema`, `output_schema`, `workspace.persist` (`true | string[]`— also the memory mechanism, §2.1.1),`budget` (`max_usd`/`max_tokens`/`max_duration_seconds`), `concurrency`, `tools`, `mcp`, `skills`, `runs_on`.
 
-**Cloud-extension fields** (in the schema, enforced only on Boardwalk Cloud, documented as such): `permissions`, `egress`, `callable_by`, `notifications`, `container`. Engines without the capability fail validation loudly when a workflow requires it (capability-presence rule, MASTER_SPEC §4).
+**Platform-extension fields** (in the schema, enforced only on hosted Boardwalk, documented as such): `permissions`, `egress`, `callable_by`, `notifications`, `container`. Engines without the capability fail validation loudly when a workflow requires it (capability-presence rule, MASTER_SPEC §4).
 
 **Not in v1** (rejected by the schema): `instructions`, `outcome`, `eval_sample_rate`, `scripts`, `chains`, `event` triggers + `events.emit`, and any integration/connection-flavored secret variants — a secret ref is exactly `{ name }`; **secrets + env vars are the entire credential story.** Some fields may return in later minors; v1 ships the surface above and nothing silent.
 
@@ -142,7 +142,7 @@ Exported types + Zod schemas for the full event union (MASTER_SPEC §2.5): envel
 src/
   index.ts        — the author-facing hooks + public exports
   types.ts        — option/argument types (AgentOptions, ToolDef, SleepArg, …)
-  meta.ts         — WorkflowMeta + trigger/capability/cloud-extension types
+  meta.ts         — WorkflowMeta + trigger/capability/platform-extension types
   host.ts         — WorkflowHost interface + singleton install/teardown + "no host" errors
   runtime.ts      — the engine-facing subpath export (/runtime)
   manifest.ts     — the Zod schema, validateMeta, MetaValidationError

@@ -18,7 +18,7 @@ export interface CronTrigger {
   timezone?: string;
 }
 
-/** Server engines only (the self-hosted server and Boardwalk Cloud) — `dev` has no listener. */
+/** Server engines only (the self-hosted server and the hosted Boardwalk platform) — `dev` has no listener. */
 export interface WebhookTrigger {
   kind: "webhook";
   auth: "token" | "signature";
@@ -69,7 +69,7 @@ export type Concurrency =
   | { mode: "serial_by_key"; key: string };
 
 // ============================================================================
-// Runner selection (meaningful on Boardwalk Cloud; local engines warn and ignore)
+// Runner selection (meaningful on hosted Boardwalk; local engines warn and ignore)
 // ============================================================================
 
 export type HostedRunsOn =
@@ -94,7 +94,7 @@ export interface SelfHostedRunsOn {
 export type RunsOn = HostedRunsOn | HostedRunsOnObject | SelfHostedRunsOn;
 
 export interface Container {
-  /** Fully-qualified image reference. Cloud-only capability. */
+  /** Fully-qualified image reference. Hosted-platform capability. */
   image: string;
 }
 
@@ -105,7 +105,7 @@ export interface Container {
 /**
  * A secret the program may read with `secrets.get(name)` — an allowlist entry, never a value.
  * Resolution is engine-dependent: environment/`.env` on local engines, the encrypted vault on
- * Boardwalk Cloud. Secrets + env vars are the entire credential story.
+ * the Boardwalk platform. Secrets + env vars are the entire credential story.
  */
 export interface SecretRef {
   name: string;
@@ -120,7 +120,7 @@ export interface SecretRef {
 export type EnvVars = Record<string, string>;
 
 // ============================================================================
-// Cloud-extension fields (validated everywhere, enforced where the capability exists)
+// Platform-extension fields (validated everywhere, enforced where the capability exists)
 // ============================================================================
 
 export type EgressPolicy =
@@ -216,7 +216,7 @@ export interface WorkflowMeta {
   /** Skill names available to `agent()` loops (selected per call). */
   skills?: readonly string[];
   runs_on?: RunsOn;
-  // Cloud-extension fields — validated everywhere, enforced where the capability exists.
+  // Platform-extension fields — validated everywhere, enforced where the capability exists.
   container?: Container;
   permissions?: RunPermissions;
   callable_by?: CallableBy;

@@ -37,7 +37,7 @@ export interface AgentOptions {
   /**
    * Model ref `<provider>/<model-id>` (the model-id may itself contain `/` or `:`), e.g.
    * `anthropic/claude-sonnet-4.5`. OPTIONAL — when omitted, resolution is engine-dependent:
-   * Boardwalk Cloud routes automatically; a local engine uses its configured default model
+   * hosted Boardwalk routes automatically; a local engine uses its configured default model
    * (or fails with a pointer to the config).
    */
   model?: string;

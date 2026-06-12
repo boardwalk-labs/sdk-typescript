@@ -1,7 +1,7 @@
 // workflowManifestSchema — the validator of record for a workflow's `meta`.
 //
 // One Zod schema, consumed by every engine (local `dev`, the self-hosted server, Boardwalk
-// Cloud) and by `extract.ts` after pure-literal extraction. The TS manifest type is derived
+// hosted platform) and by `extract.ts` after pure-literal extraction. The TS manifest type is derived
 // from the schema, never hand-written. Unknown fields are validation errors — no silent drift.
 //
 // Union ordering rule: most-specific-first. Zod unions are first-match-wins and strict objects
@@ -191,7 +191,7 @@ const runsOnSchema = z.union([
 ]);
 
 // ============================================================================
-// Cloud-extension fields (validated everywhere, enforced where the capability exists)
+// Platform-extension fields (validated everywhere, enforced where the capability exists)
 // ============================================================================
 
 const containerSchema = z.strictObject({ image: z.string().min(1).max(512) });
@@ -254,7 +254,7 @@ export const workflowManifestSchema = z.strictObject({
   mcp: z.array(mcpServerSchema).default([]),
   skills: z.array(shortName).default([]),
   runs_on: runsOnSchema.default("boardwalk/linux"),
-  // Cloud-extension fields.
+  // Platform-extension fields.
   container: containerSchema.optional(),
   permissions: permissionsSchema.optional(),
   callable_by: callableBySchema.default("anyone_in_org"),

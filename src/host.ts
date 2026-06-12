@@ -2,7 +2,7 @@
 //
 // `@boardwalk/workflow` is a host-backed package: the hooks authors import (agent, sleep,
 // workflows.call, secrets.get, input) are thin facades over a `WorkflowHost` the *engine*
-// installs at runtime. Boardwalk Cloud installs its hosted adapter; the local engine installs
+// installs at runtime. hosted Boardwalk installs its hosted adapter; the local engine installs
 // one backed by the developer's environment. The author's program is identical either way —
 // explicit hooks instead of injected globals.
 //
@@ -29,7 +29,7 @@ export interface WorkflowHost {
   setPhase?(name: string, opts: PhaseOptions | undefined): void;
   /**
    * Run an agent leaf to completion; resolve to its text (or schema-validated object).
-   * `opts.model` may be omitted — resolution is engine-dependent (Cloud routes; local engines
+   * `opts.model` may be omitted — resolution is engine-dependent (the hosted platform routes; local engines
    * use a configured default or fail with a pointer to the config).
    */
   agent(prompt: string, opts: AgentOptions | undefined): Promise<unknown>;
