@@ -28,7 +28,7 @@ interface AgentOptions {
   provider?: string; // Who fulfills the call. Default `boardwalk` on EVERY engine; BYO keys only when explicitly named.
   schema?: JsonSchema; // Validates parsed JSON output; run fails on mismatch.
   tools?: readonly (string | ToolDef)[]; // PER-AGENT: engine built-in names + inline program-defined tools.
-  mcp?: readonly string[]; // Selection from meta.mcp by server name (the one meta-declared capability).
+  mcp?: readonly McpServerRef[]; // PER-AGENT: inline server definitions (stdio command or http url).
   skills?: readonly string[]; // PER-AGENT: skills/<name>.md deployed alongside the program.
   memory?: string; // PER-AGENT: workspace-relative dir, auto-persisted across runs by the engine.
 }
@@ -71,14 +71,12 @@ function Phase(name: string, opts?: { id?: string }): void; // named phase bound
 
 ### 2.1.1 The `agent()` capability set (v1 — required, all engines)
 
-The loop is a real agentic loop, not bare inference. **Capabilities are PER-AGENT (decided 2026-06-11): each `agent()` call brings its own tools, skills, and memory — there are NO `meta.tools`/`meta.skills` fields, and memory needs no `workspace.persist` declaration.** Only MCP servers live on `meta` (deploy-time infrastructure: commands, URLs, secret-bearing env), selected per call by name.
+The loop is a real agentic loop, not bare inference. **ALL capabilities are PER-AGENT (decided 2026-06-11): each `agent()` call brings its own tools, MCP servers, skills, and memory — the manifest declares NONE of them** (no `meta.tools`/`meta.mcp`/`meta.skills`; memory needs no `workspace.persist` declaration).
 
 ```ts
-// the ONE meta-level capability declaration
-mcp?: readonly McpServerRef[];    // { name, transport: "stdio" | "http", command? | url?, env?: Record<string,string> }
-
-// everything else is per-agent, on AgentOptions:
+// everything is per-agent, on AgentOptions:
 tools?: readonly (string | ToolDef)[];  // engine built-in names + inline program-defined tools
+mcp?: readonly McpServerRef[];          // inline: { name, transport: "stdio" | "http", command? | url?, env?/headers? }
 skills?: readonly string[];             // skills/<name>.md deployed alongside the program
 memory?: string;                        // a workspace-relative dir, auto-persisted across runs
 
@@ -92,15 +90,15 @@ interface ToolDef {
 ```
 
 - **Tools:** engine built-in names + inline `ToolDef`s whose `execute` runs in the program process (the trusted layer — it may use `secrets.get`; only its _return value_ enters model context, subject to redaction). An unknown built-in name fails loudly at call time.
-- **MCP:** the loop connects to `meta.mcp` servers selected per call and exposes their tools to the model. Server commands/URLs may reference `${{ secrets.NAME }}` in `env`.
+- **MCP:** the loop connects to the call's inline `McpServerRef`s and exposes their tools to the model. The program is the trusted layer — it supplies credentials in `env`/`headers` directly (e.g. from `secrets.get`); no interpolation syntax.
 - **Skills:** user-authored markdown loaded into the loop's context by name, resolved from the `skills/` directory deployed alongside the program (`skills/<name>.md`). A missing skill file fails loudly at call time.
 - **Memory is not a separate system — it is a persistent directory, per agent.** `agent(prompt, { memory: "memory/triager" })` points the loop at a workspace-relative directory; the **engine persists every memory directory automatically across runs** (hydrated at run start, written back at successful run end — no declaration anywhere). The loop gets read/write file tools scoped to that directory and loads its index into context at turn start; the _program_ may read/write the same files in plain code (seed it, inspect it, prune it). Multiple agents may use separate directories or deliberately share one. Rules: paths are workspace-relative; `..` (or any escape) is a validation error. `workspace.persist` remains the separate, program-level persistence knob for non-memory state.
-- Per-call selection defaults to **none** (a plain `agent(prompt)` is still just inference); an `mcp` name not declared on `meta`, an unknown built-in tool, or a missing skill file is a loud error, never silent degradation.
+- Per-call selection defaults to **none** (a plain `agent(prompt)` is still just inference); an unknown built-in tool or a missing skill file is a loud error, never silent degradation.
 - Secret-redaction (MASTER_SPEC §6.2) applies to all of it: tool args/results, MCP traffic, skill content, and memory content are scrubbed of known secret values before reaching the model.
 
 ### 2.2 `meta` / manifest — v1 core fields
 
-See MASTER*SPEC §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK*\_`/`AWS\_\_`reserved),`input_schema`, `output_schema`, `workspace.persist` (`true | string[]` — program-level persistence; agent memory is auto-persisted separately, §2.1.1),`budget` (`max_usd`/`max_tokens`/`max_duration_seconds`), `concurrency`, `mcp`, `runs_on`. There are **no `tools`/`skills` manifest fields\*\* — those capabilities are per-agent (§2.1.1).
+See MASTER*SPEC §2.2 for the field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK*\_`/`AWS\_\_`reserved),`input_schema`, `output_schema`, `workspace.persist` (`true | string[]` — program-level persistence; agent memory is auto-persisted separately, §2.1.1),`budget` (`max_usd`/`max_tokens`/`max_duration_seconds`), `concurrency`, `runs_on`. There are **no capability manifest fields** (`tools`/`mcp`/`skills`) — all agent capabilities are per-agent (§2.1.1).
 
 **Platform-extension fields** (in the schema, enforced only on hosted Boardwalk, documented as such): `permissions`, `egress`, `callable_by`, `notifications`, `container`. Engines without the capability fail validation loudly when a workflow requires it (capability-presence rule, MASTER_SPEC §4).
 

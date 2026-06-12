@@ -31,12 +31,11 @@ export interface ManualTrigger {
 export type Trigger = CronTrigger | WebhookTrigger | ManualTrigger;
 
 // ============================================================================
-// Agent capabilities: MCP servers
+// Agent capabilities
 //
-// Tools, skills, and memory are PER-AGENT, not per-workflow (decided 2026-06-11): each
-// agent() call brings its own (AgentOptions.tools/skills/memory) with no meta declaration.
-// MCP servers stay on meta because they are deploy-time infrastructure (commands, URLs,
-// secret-bearing env), still SELECTED per call by name.
+// ALL capabilities are PER-AGENT, not per-workflow (decided 2026-06-11): each agent() call
+// brings its own tools, MCP servers, skills, and memory via AgentOptions — the manifest
+// declares none of them.
 // ============================================================================
 
 /**
@@ -49,21 +48,23 @@ export interface ToolGrant {
   scope?: readonly string[];
 }
 
-/** An MCP server whose tools `agent()` loops may use (selected per call by `name`). */
+/**
+ * An MCP server an `agent()` call connects to (inline in `AgentOptions.mcp` — per-agent, no
+ * meta declaration). The program is the trusted layer: put credentials in `env`/`headers`
+ * directly (e.g. from `secrets.get`) — no interpolation syntax.
+ */
 export type McpServerRef =
   | {
       name: string;
       transport: "stdio";
       command: string;
       args?: readonly string[];
-      /** Values may be `"${{ secrets.NAME }}"` whole-value references, resolved at run time. */
       env?: Record<string, string>;
     }
   | {
       name: string;
       transport: "http";
       url: string;
-      /** Values may be `"${{ secrets.NAME }}"` whole-value references, resolved at run time. */
       headers?: Record<string, string>;
     };
 
@@ -217,11 +218,8 @@ export interface WorkflowMeta {
   workspace?: Workspace;
   budget?: Budget;
   concurrency?: Concurrency;
-  // NOTE: there are NO workflow-level `tools`/`skills` fields. Tools, skills, and memory are
-  // per-agent — each `agent()` call brings its own (see AgentOptions). Only MCP servers are
-  // declared here (deploy-time infrastructure), still selected per call by name.
-  /** MCP servers available to `agent()` loops (selected per call by name). */
-  mcp?: readonly McpServerRef[];
+  // NOTE: there are NO workflow-level capability fields (tools/mcp/skills/memory). All agent
+  // capabilities are per-agent — each `agent()` call brings its own (see AgentOptions).
   runs_on?: RunsOn;
   // Platform-extension fields — validated everywhere, enforced where the capability exists.
   container?: Container;

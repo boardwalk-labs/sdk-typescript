@@ -1,5 +1,7 @@
 // Option/argument types for the workflow hooks (Phase, agent, workflows.call, sleep, secrets).
 
+import type { McpServerRef } from "./meta.js";
+
 /** A JSON Schema object (loosely typed — the engine validates against it). */
 export type JsonSchema = Record<string, unknown>;
 
@@ -30,9 +32,8 @@ export interface ToolDef {
 
 /**
  * Options for an {@link import("./index.js").agent} leaf call. Capabilities are PER-AGENT:
- * each call brings its own `tools`, `skills`, and `memory` — no meta declaration. Only `mcp`
- * names servers declared on `meta` (deploy-time infrastructure: commands, URLs, secret-bearing
- * env). A plain `agent(prompt)` is simple inference.
+ * each call brings its own `tools`, `mcp` servers, `skills`, and `memory` — the manifest
+ * declares none of them. A plain `agent(prompt)` is simple inference.
  */
 export interface AgentOptions {
   /**
@@ -58,8 +59,12 @@ export interface AgentOptions {
    * {@link ToolDef}s. Per-agent — no meta declaration. Defaults to none.
    */
   tools?: readonly (string | ToolDef)[];
-  /** MCP servers (by `meta.mcp` name) whose tools this leaf may use. Defaults to none. */
-  mcp?: readonly string[];
+  /**
+   * MCP servers this leaf connects to, defined inline ({@link McpServerRef}). Per-agent — no
+   * meta declaration; the program supplies credentials directly (it is the trusted layer).
+   * Defaults to none.
+   */
+  mcp?: readonly McpServerRef[];
   /**
    * Skills loadable into this leaf's context, by name — resolved from the `skills/` directory
    * deployed alongside the program (`skills/<name>.md`). Per-agent. Defaults to none.

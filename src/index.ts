@@ -40,8 +40,8 @@ export function Phase(name: string, opts?: PhaseOptions): void {
  * (`T` defaults to `string`); with a schema, resolves to the validated object — pass the
  * expected type, e.g. `await agent<Groups>(prompt, { schema })`. Omit `opts.model` to let the
  * provider route automatically (the default `boardwalk` provider on every engine; your own
- * keys only via an explicit provider). Capability selections (`tools`, `mcp`, `skills`, `memory`) must
- * reference declarations on the workflow's `meta`.
+ * keys only via an explicit provider). Capabilities (`tools`, `mcp`, `skills`, `memory`) are
+ * PER-AGENT — each call brings its own; the manifest declares none of them.
  */
 export async function agent<T = string>(prompt: string, opts?: AgentOptions): Promise<T> {
   return (await requireHost().agent(prompt, opts)) as T;

@@ -9,7 +9,6 @@ describe("workflowManifestSchema — core", () => {
     expect(m.name).toBe("hello");
     expect(m.triggers).toEqual([{ kind: "manual" }]);
     expect(m.concurrency).toEqual({ mode: "unlimited" });
-    expect(m.mcp).toEqual([]);
     expect(m.runs_on).toBe("boardwalk/linux");
     expect(m.callable_by).toBe("anyone_in_org");
   });
@@ -27,25 +26,30 @@ describe("workflowManifestSchema — core", () => {
       workspace: { persist: ["memory/triager", "cache"] },
       budget: { max_usd: 2.5, max_duration_seconds: 600 },
       concurrency: { mode: "serial" },
-      mcp: [{ name: "gh", transport: "stdio", command: "gh-mcp", args: ["--stdio"] }],
     };
     const m = workflowManifestSchema.parse(full);
     expect(m.secrets).toEqual([{ name: "GITHUB_TOKEN" }]);
     expect(m.workspace).toEqual({ persist: ["memory/triager", "cache"] });
-    expect(m.mcp).toEqual(full.mcp);
   });
 
   it("rejects unknown fields (no silent drift)", () => {
     expect(() => validateMeta({ ...MINIMAL, scripts: ["x"] })).toThrow(MetaValidationError);
     expect(() => validateMeta({ ...MINIMAL, memory: true })).toThrow(MetaValidationError);
     expect(() => validateMeta({ ...MINIMAL, instructions: "hi" })).toThrow(MetaValidationError);
-    // Dropped 2026-06-11: tools/skills are per-agent (AgentOptions), never manifest fields.
+    // Dropped 2026-06-11: capabilities (tools/mcp/skills) are per-agent (AgentOptions),
+    // never manifest fields.
     expect(() => validateMeta({ ...MINIMAL, tools: [{ name: "web_search" }] })).toThrow(
       MetaValidationError,
     );
     expect(() => validateMeta({ ...MINIMAL, skills: ["triage-style"] })).toThrow(
       MetaValidationError,
     );
+    expect(() =>
+      validateMeta({
+        ...MINIMAL,
+        mcp: [{ name: "m", transport: "http", url: "https://mcp.example.com" }],
+      }),
+    ).toThrow(MetaValidationError);
   });
 
   it("rejects bad names and missing triggers", () => {
@@ -121,20 +125,6 @@ describe("workspace.persist", () => {
         MetaValidationError,
       );
     }
-  });
-});
-
-describe("agent capabilities", () => {
-  it("validates MCP server refs per transport", () => {
-    expect(() => validateMeta({ ...MINIMAL, mcp: [{ name: "m", transport: "stdio" }] })).toThrow(); // stdio requires command
-    expect(() =>
-      validateMeta({ ...MINIMAL, mcp: [{ name: "m", transport: "http", url: "not-a-url" }] }),
-    ).toThrow();
-    const ok = validateMeta({
-      ...MINIMAL,
-      mcp: [{ name: "m", transport: "http", url: "https://mcp.example.com" }],
-    });
-    expect(ok.mcp).toEqual([{ name: "m", transport: "http", url: "https://mcp.example.com" }]);
   });
 });
 

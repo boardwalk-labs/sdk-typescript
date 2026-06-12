@@ -141,7 +141,7 @@ const concurrencySchema = z.union([
 ]);
 
 // ============================================================================
-// Agent capabilities: MCP servers (tools/skills/memory are per-agent — no manifest fields)
+// Agent capabilities: NONE on the manifest — tools/mcp/skills/memory are all per-agent
 // ============================================================================
 
 // Used only by the platform-extension permissions.tools (hosted run-permission scoping).
@@ -150,22 +150,6 @@ const toolGrantSchema = z.strictObject({
   config: z.record(z.string(), z.unknown()).optional(),
   scope: z.array(z.string().min(1).max(200)).optional(),
 });
-
-const mcpServerSchema = z.union([
-  z.strictObject({
-    name: shortName,
-    transport: z.literal("stdio"),
-    command: z.string().min(1).max(1024),
-    args: z.array(z.string().max(1024)).optional(),
-    env: z.record(z.string().min(1).max(120), z.string().max(4096)).optional(),
-  }),
-  z.strictObject({
-    name: shortName,
-    transport: z.literal("http"),
-    url: z.string().url().max(2048),
-    headers: z.record(z.string().min(1).max(120), z.string().max(4096)).optional(),
-  }),
-]);
 
 // ============================================================================
 // Runner selection
@@ -251,8 +235,7 @@ export const workflowManifestSchema = z.strictObject({
   workspace: workspaceSchema.optional(),
   budget: budgetSchema.optional(),
   concurrency: concurrencySchema.default({ mode: "unlimited" }),
-  // Tools, skills, and memory are PER-AGENT (AgentOptions), not manifest fields.
-  mcp: z.array(mcpServerSchema).default([]),
+  // NO capability fields (tools/mcp/skills/memory) — all per-agent via AgentOptions.
   runs_on: runsOnSchema.default("boardwalk/linux"),
   // Platform-extension fields.
   container: containerSchema.optional(),
