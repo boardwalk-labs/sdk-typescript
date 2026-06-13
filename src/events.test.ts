@@ -40,10 +40,20 @@ describe("schema round-trips", () => {
     { ...ENVELOPE, kind: "phase", name: "plan", id: "p1" },
     { ...ENVELOPE, kind: "output", value: { answer: 42 } },
     { ...ENVELOPE, kind: "program_output", stream: "stdout", text: "hello\n" },
-    { ...ENVELOPE, kind: "turn_started" },
+    { ...ENVELOPE, kind: "turn_started", agentId: "agt_1" },
+    { ...ENVELOPE, kind: "turn_started", agentId: "agt_2", agentName: "reviewer" },
     {
       ...ENVELOPE,
       kind: "turn_ended",
+      agentId: "agt_1",
+      reason: "complete",
+      usage: { inputTokens: 100, outputTokens: 20 },
+    },
+    {
+      ...ENVELOPE,
+      kind: "turn_ended",
+      agentId: "agt_2",
+      agentName: "reviewer",
       reason: "complete",
       usage: { inputTokens: 100, outputTokens: 20 },
     },
@@ -64,7 +74,11 @@ describe("schema round-trips", () => {
 
   it("rejects unknown kinds and extra fields", () => {
     expect(() => runEventSchema.parse({ ...ENVELOPE, kind: "nope" })).toThrow();
-    expect(() => runEventSchema.parse({ ...ENVELOPE, kind: "turn_started", extra: 1 })).toThrow();
+    expect(() =>
+      runEventSchema.parse({ ...ENVELOPE, kind: "turn_started", agentId: "a", extra: 1 }),
+    ).toThrow();
+    // agentId is required on turn_started/turn_ended.
+    expect(() => runEventSchema.parse({ ...ENVELOPE, kind: "turn_started" })).toThrow();
   });
 });
 

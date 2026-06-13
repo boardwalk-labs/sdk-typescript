@@ -117,10 +117,31 @@ const programOutputEvent = z.strictObject({
 });
 
 // -- agent channel ----------------------------------------------------------------
-const turnStarted = z.strictObject({ ...envelopeShape, kind: z.literal("turn_started") });
+//
+// `turn_started`/`turn_ended` bracket the turns of ONE `agent()` leaf and carry that leaf's
+// identity: a stable, run-unique `agentId` (engine-assigned) and the author's optional
+// `agentName` (from `AgentOptions.name`). The high-frequency frames in between (text/tool/
+// reasoning) stay lean — a consumer attributes them to a leaf by their envelope `turnId`, which
+// the bracketing `turn_started` maps to its `agentId`/`agentName`. This is what lets a viewer
+// tell concurrent agents apart instead of seeing one interleaved blur.
+
+/** Identity of the `agent()` leaf a turn belongs to (shared by its turn_started/turn_ended). */
+const agentIdentityShape = {
+  /** Stable, run-unique id for the `agent()` call. Engine-assigned; same across all its turns. */
+  agentId: z.string().min(1),
+  /** The author's `AgentOptions.name`, if one was given. Display-only; absent otherwise. */
+  agentName: z.string().min(1).optional(),
+} as const;
+
+const turnStarted = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("turn_started"),
+  ...agentIdentityShape,
+});
 const turnEnded = z.strictObject({
   ...envelopeShape,
   kind: z.literal("turn_ended"),
+  ...agentIdentityShape,
   reason: z.enum(["complete", "cancelled", "error"]),
   usage: tokenUsageSchema.optional(),
   error: eventErrorSchema.optional(),

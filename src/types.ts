@@ -37,6 +37,14 @@ export interface ToolDef {
  */
 export interface AgentOptions {
   /**
+   * A human label for this leaf, echoed onto its `turn_started`/`turn_ended` events as
+   * `agentName`. Purely for display — it lets a stream consumer tell concurrent agents apart
+   * (e.g. a `reviewer` and a `summarizer` running under `parallel`). It is NOT an identifier and
+   * need not be unique; the engine always assigns a stable, run-unique `agentId` regardless.
+   * Defaults to none (consumers fall back to a generic label).
+   */
+  name?: string;
+  /**
    * The model, as an OPAQUE string passed VERBATIM to the provider — engines never parse,
    * prefix, or rewrite it. Use whatever identifier your provider expects (e.g.
    * `claude-sonnet-4-5` for Anthropic; `anthropic/sonnet-4.5` if that's what your local
