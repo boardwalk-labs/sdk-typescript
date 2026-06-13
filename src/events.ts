@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // The run-event wire format — one typed, ordered stream per run, identical in every engine.
 //
 // Every event carries an envelope (runId, turnId, per-turn 1-based seq, server timestamp) and

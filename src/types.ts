@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // Option/argument types for the workflow hooks (Phase, agent, workflows.call, sleep, secrets).
 
 import type { McpServerRef } from "./meta.js";

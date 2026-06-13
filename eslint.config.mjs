@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // workflowManifestSchema — the validator of record for a workflow's `meta`.
 //
 // One Zod schema, consumed by every engine (local `dev`, the self-hosted server, Boardwalk

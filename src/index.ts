@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // @boardwalk-labs/workflow — the author-facing API a workflow program imports.
 //
 //   import { agent, workflows, sleep, secrets, input, type WorkflowMeta } from "@boardwalk-labs/workflow"

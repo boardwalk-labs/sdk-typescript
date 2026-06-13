@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { agent, artifacts, output, parallel, Phase, secrets, sleep, workflows } from "./index.js";
 import {

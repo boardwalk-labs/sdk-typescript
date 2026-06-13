@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // WorkflowMeta — the TypeScript shape of a workflow's `meta` export.
 //
 // A workflow program declares `export const meta = { … } satisfies WorkflowMeta`. The

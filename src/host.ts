@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // The host seam — the engine-implementation boundary of the SDK.
 //
 // `@boardwalk-labs/workflow` is a host-backed package: the hooks authors import (agent, sleep,

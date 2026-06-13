@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 import { describe, expect, it } from "vitest";
 import { extractManifest, extractMetaLiteral, MetaExtractionError } from "./extract.js";
 

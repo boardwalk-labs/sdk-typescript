@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // @boardwalk-labs/workflow/extract — static extraction of a workflow program's `meta` → manifest.
 //
 // A workflow is a TS/JS program file whose `export const meta = { … }` is a PURE LITERAL.
