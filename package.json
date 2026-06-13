@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "description": "Author Boardwalk workflows in TypeScript: agent(), sleep(), workflows.call(), secrets, the manifest schema, and the run-event wire format.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boardwalk-labs/sdk.git"
+  },
+  "homepage": "https://github.com/boardwalk-labs/sdk#readme",
   "type": "module",
   "engines": {
     "node": ">=24"
