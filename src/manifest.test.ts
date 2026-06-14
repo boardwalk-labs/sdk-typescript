@@ -103,7 +103,10 @@ describe("triggers", () => {
 describe("secrets and env", () => {
   it("a secret ref is exactly { name } — integration variants are rejected", () => {
     expect(() =>
-      validateMeta({ ...MINIMAL, permissions: { secrets: [{ name: "T", integration: "github" }] } }),
+      validateMeta({
+        ...MINIMAL,
+        permissions: { secrets: [{ name: "T", integration: "github" }] },
+      }),
     ).toThrow(MetaValidationError);
     expect(() =>
       validateMeta({ ...MINIMAL, permissions: { secrets: [{ name: "T", from_role: "r" }] } }),
