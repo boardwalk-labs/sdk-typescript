@@ -39,7 +39,7 @@ export interface WorkflowHost {
   callWorkflow(slug: string, input: unknown, opts: CallOptions | undefined): Promise<unknown>;
   /** Hold the run for the requested duration (the run stays held while it waits; locals survive). */
   sleep(arg: SleepArg): Promise<void>;
-  /** Resolve a granted secret to its plaintext value (fail-closed against `meta.secrets`). */
+  /** Resolve a granted secret to its plaintext value (fail-closed against `permissions.secrets`). */
   getSecret(name: string): Promise<string>;
   /**
    * Fire-and-forget trigger of another workflow; resolve to the new run's id WITHOUT holding for

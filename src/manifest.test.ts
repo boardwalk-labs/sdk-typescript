@@ -23,7 +23,7 @@ describe("workflowManifestSchema — core", () => {
         { kind: "cron", expr: "0 9 * * 1-5", timezone: "America/Anchorage" },
         { kind: "webhook", auth: "token" },
       ],
-      secrets: [{ name: "GITHUB_TOKEN" }],
+      permissions: { secrets: [{ name: "GITHUB_TOKEN" }] },
       env: { LOG_LEVEL: "info", GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" },
       workspace: { persist: ["memory/triager", "cache"] },
       budget: { max_usd: 2.5, max_duration_seconds: 600 },
@@ -55,6 +55,14 @@ describe("workflowManifestSchema — core", () => {
         ...MINIMAL,
         mcp: [{ name: "m", transport: "http", url: "https://mcp.example.com" }],
       }),
+    ).toThrow(MetaValidationError);
+    // Secrets moved into `permissions.secrets` — a top-level `secrets` is now an unknown field.
+    expect(() => validateMeta({ ...MINIMAL, secrets: [{ name: "GH" }] })).toThrow(
+      MetaValidationError,
+    );
+    // `permissions.tools` was removed — tools are per-agent only.
+    expect(() =>
+      validateMeta({ ...MINIMAL, permissions: { tools: [{ name: "web_search" }] } }),
     ).toThrow(MetaValidationError);
   });
 
@@ -95,11 +103,16 @@ describe("triggers", () => {
 describe("secrets and env", () => {
   it("a secret ref is exactly { name } — integration variants are rejected", () => {
     expect(() =>
-      validateMeta({ ...MINIMAL, secrets: [{ name: "T", integration: "github" }] }),
+      validateMeta({ ...MINIMAL, permissions: { secrets: [{ name: "T", integration: "github" }] } }),
     ).toThrow(MetaValidationError);
-    expect(() => validateMeta({ ...MINIMAL, secrets: [{ name: "T", from_role: "r" }] })).toThrow(
-      MetaValidationError,
-    );
+    expect(() =>
+      validateMeta({ ...MINIMAL, permissions: { secrets: [{ name: "T", from_role: "r" }] } }),
+    ).toThrow(MetaValidationError);
+  });
+
+  it("the secret allowlist lives at permissions.secrets", () => {
+    const m = validateMeta({ ...MINIMAL, permissions: { secrets: [{ name: "GITHUB_TOKEN" }] } });
+    expect(m.permissions?.secrets).toEqual([{ name: "GITHUB_TOKEN" }]);
   });
 
   it("rejects reserved env prefixes", () => {

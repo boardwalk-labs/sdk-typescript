@@ -43,7 +43,7 @@ interface CallOptions {
 
 function sleep(arg: number | { durationMs: number } | { until: string | Date }): Promise<void>;
 
-const secrets: { get(name: string): Promise<string> }; // name must appear in meta.secrets
+const secrets: { get(name: string): Promise<string> }; // name must appear in permissions.secrets
 const artifacts: {
   write(
     name: string,
@@ -98,9 +98,9 @@ interface ToolDef {
 
 ### 2.2 `meta` / manifest — v1 core fields
 
-The manifest field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `secrets` (`{name}[]`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK_*` / `AWS_*` reserved), `input_schema`, `output_schema`, `workspace.persist` (`true | string[]` — program-level persistence; agent memory is auto-persisted separately, §2.1.1), `budget` (`max_usd` / `max_tokens` / `max_duration_seconds`), `concurrency`, `runs_on`. There are **no capability manifest fields** (`tools` / `mcp` / `skills`) — all agent capabilities are per-agent (§2.1.1).
+The manifest field table: `name`, `description`, `triggers` (cron `{expr, timezone?}` / manual / webhook `{auth}`), `env` (with `${{ secrets.NAME }}` whole-value interpolation; `BOARDWALK_*` / `AWS_*` reserved), `input_schema`, `output_schema`, `workspace.persist` (`true | string[]` — program-level persistence; agent memory is auto-persisted separately, §2.1.1), `budget` (`max_usd` / `max_tokens` / `max_duration_seconds`), `concurrency`, `runs_on`. The **secret allowlist is `permissions.secrets`** (`{name}[]` — a readable secret is an access grant), not a top-level field. There are **no capability manifest fields** (`tools` / `mcp` / `skills`) — all agent capabilities are per-agent (§2.1.1).
 
-**Platform-extension fields** (in the schema, enforced only on hosted Boardwalk, documented as such): `permissions`, `egress`, `callable_by`, `notifications`, `container`. Engines without the capability fail validation loudly when a workflow requires it (capability-presence rule).
+**Platform-extension fields** (in the schema, enforced only on hosted Boardwalk, documented as such): `permissions`, `egress`, `callable_by`, `notifications`, `container`. `permissions` is the access-grant surface — access-level knobs (`id_token` / `artifacts` / `contents`) plus the secret allowlist (`secrets: {name}[]`); it carries **no `tools` grant** (tool selection is per-agent, §2.1.1). Engines without the capability fail validation loudly when a workflow requires it (capability-presence rule).
 
 **Not in v1** (rejected by the schema): `instructions`, `outcome`, `eval_sample_rate`, `scripts`, `chains`, `event` triggers + `events.emit`, and any integration/connection-flavored secret variants — a secret ref is exactly `{ name }`; **secrets + env vars are the entire credential story.** Some fields may return in later minors; v1 ships the surface above and nothing silent.
 

@@ -37,18 +37,10 @@ export type Trigger = CronTrigger | WebhookTrigger | ManualTrigger;
 //
 // ALL capabilities are PER-AGENT, not per-workflow (decided 2026-06-11): each agent() call
 // brings its own tools, MCP servers, skills, and memory via AgentOptions — the manifest
-// declares none of them.
+// declares none of them. There is deliberately no manifest-level tool grant or ceiling: an
+// agent gets exactly the tools its own `agent()` call names, so "what can this agent use" lives
+// in one place next to the agent, never split across the manifest and the call.
 // ============================================================================
-
-/**
- * A built-in tool grant, with optional configuration. Used only by the platform-extension
- * `permissions.tools` (hosted run-permission scoping) — agent tool selection is per-call.
- */
-export interface ToolGrant {
-  name: string;
-  config?: Record<string, unknown>;
-  scope?: readonly string[];
-}
 
 /**
  * An MCP server an `agent()` call connects to (inline in `AgentOptions.mcp` — per-agent, no
@@ -115,8 +107,9 @@ export interface Container {
 
 /**
  * A secret the program may read with `secrets.get(name)` — an allowlist entry, never a value.
- * Resolution is engine-dependent: environment/`.env` on local engines, the encrypted vault on
- * the Boardwalk platform. Secrets + env vars are the entire credential story.
+ * Declared in `permissions.secrets` (a readable secret is an access grant). Resolution is
+ * engine-dependent: environment/`.env` on local engines, the encrypted vault on the Boardwalk
+ * platform. Secrets + env vars are the entire credential story.
  */
 export interface SecretRef {
   name: string;
@@ -125,8 +118,8 @@ export interface SecretRef {
 /**
  * Environment variables for the run. A value is either non-secret plaintext, or a whole-value
  * secret reference `"${{ secrets.NAME }}"` resolved at run time (never stored in the manifest).
- * Referencing a secret here also grants the run access to it. Reserved `BOARDWALK_*` / `AWS_*`
- * keys are not allowed.
+ * A referenced secret must also be declared in `permissions.secrets` (env injection is the
+ * delivery, the permission is the grant). Reserved `BOARDWALK_*` / `AWS_*` keys are not allowed.
  */
 export type EnvVars = Record<string, string>;
 
@@ -142,12 +135,17 @@ export type EgressPolicy =
 
 export type RunPermissionAccess = "none" | "read" | "write";
 
+/**
+ * The run's access-grant surface — what the workflow is allowed to access or do. Access-level
+ * knobs (`id_token`/`artifacts`/`contents`) plus the secret allowlist (`secrets`). No `tools`
+ * grant: tool selection is per-agent (`AgentOptions.tools`), never a manifest-level ceiling.
+ */
 export interface RunPermissions {
   id_token?: "none" | "write";
   artifacts?: RunPermissionAccess;
   contents?: RunPermissionAccess;
+  /** Names of secrets the program may read with `secrets.get` — an allowlist, not values. */
   secrets?: readonly SecretRef[];
-  tools?: readonly ToolGrant[];
 }
 
 export type OrgRole = "owner" | "admin" | "member" | "viewer";
@@ -215,7 +213,8 @@ export interface WorkflowMeta {
   // for engine-dependent resolution). See AgentOptions.
   /** At least one trigger is required. */
   triggers: readonly Trigger[];
-  secrets?: readonly SecretRef[];
+  // No top-level `secrets`: the secret allowlist is `permissions.secrets` (a readable secret is a
+  // grant). `env` delivers values, incl. `"${{ secrets.NAME }}"` of a permitted secret.
   env?: EnvVars;
   input_schema?: Record<string, unknown>;
   output_schema?: Record<string, unknown>;

@@ -88,7 +88,7 @@ export async function sleep(arg: SleepArg): Promise<void> {
   await requireHost().sleep(arg);
 }
 
-/** Granted secrets, resolved lazily and fail-closed against `meta.secrets`. */
+/** Granted secrets, resolved lazily and fail-closed against `permissions.secrets`. */
 export const secrets = {
   /** Resolve a granted secret to its plaintext value. */
   async get(name: string): Promise<string> {
@@ -145,7 +145,6 @@ export type {
   CronTrigger,
   WebhookTrigger,
   ManualTrigger,
-  ToolGrant,
   McpServerRef,
   Concurrency,
   CallableBy,

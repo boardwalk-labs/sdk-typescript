@@ -143,17 +143,6 @@ const concurrencySchema = z.union([
 ]);
 
 // ============================================================================
-// Agent capabilities: NONE on the manifest — tools/mcp/skills/memory are all per-agent
-// ============================================================================
-
-// Used only by the platform-extension permissions.tools (hosted run-permission scoping).
-const toolGrantSchema = z.strictObject({
-  name: shortName,
-  config: z.record(z.string(), z.unknown()).optional(),
-  scope: z.array(z.string().min(1).max(200)).optional(),
-});
-
-// ============================================================================
 // Runner selection
 // ============================================================================
 
@@ -185,12 +174,16 @@ const containerSchema = z.strictObject({ image: z.string().min(1).max(512) });
 
 const permissionAccess = z.enum(["none", "read", "write"]);
 
+// `permissions` is the run's access-grant surface: what the workflow is ALLOWED to access or do.
+// Access-level knobs (id_token/artifacts/contents) plus the SECRET allowlist — a secret a program
+// may read is a grant, so it lives here, not as a top-level field (a top-level `secrets` next to
+// `env` reads like injection; it isn't). There is NO `tools` grant: tool selection is per-agent
+// (AgentOptions.tools), declared on the `agent()` call that uses it — one place, no run-level ceiling.
 const permissionsSchema = z.strictObject({
   id_token: z.enum(["none", "write"]).optional(),
   artifacts: permissionAccess.optional(),
   contents: permissionAccess.optional(),
   secrets: z.array(secretRefSchema).optional(),
-  tools: z.array(toolGrantSchema).optional(),
 });
 
 const callableBySchema = z.union([
@@ -230,7 +223,8 @@ export const workflowManifestSchema = z.strictObject({
   name: workflowName,
   description: z.string().max(1000).optional(),
   triggers: z.array(triggerSchema).min(1),
-  secrets: z.array(secretRefSchema).optional(),
+  // NO top-level `secrets` — the secret allowlist is `permissions.secrets` (a secret you may read
+  // is an access grant). `env` is for value injection (incl. `${{ secrets.NAME }}` of a permitted secret).
   env: envVarsSchema.optional(),
   input_schema: jsonSchemaObject.optional(),
   output_schema: jsonSchemaObject.optional(),
