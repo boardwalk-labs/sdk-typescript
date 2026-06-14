@@ -54,6 +54,14 @@ export function extractMetaLiteral(
   const fileName = options.fileName ?? DEFAULT_FILE_NAME;
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, /*setParentNodes*/ true);
 
+  // A syntax error otherwise falls through to "No `meta` declaration found" (the parser produced no
+  // usable `meta` node) — misleading. Report the real syntax error, with position, first.
+  const syntaxError = firstSyntaxError(sf);
+  if (syntaxError !== undefined) {
+    const text = ts.flattenDiagnosticMessageText(syntaxError.messageText, "\n");
+    throw failAt(`syntax error: ${text}`, sf, syntaxError.start);
+  }
+
   const initializer = findMetaInitializer(sf);
   if (initializer === null) {
     throw fail(
@@ -237,4 +245,41 @@ function fail(message: string, node?: ts.Node, sf?: ts.SourceFile): MetaExtracti
     );
   }
   return new MetaExtractionError(message);
+}
+
+/** Like {@link fail}, but positioned at a raw source offset (a diagnostic's `start`). */
+function failAt(
+  message: string,
+  sf: ts.SourceFile,
+  start: number | undefined,
+): MetaExtractionError {
+  if (start === undefined) return new MetaExtractionError(message);
+  const { line, character } = sf.getLineAndCharacterOfPosition(start);
+  return new MetaExtractionError(
+    `${sf.fileName}:${String(line + 1)}:${String(character + 1)} — ${message}`,
+  );
+}
+
+/**
+ * The first syntax error TS recorded while parsing, or undefined. The parser stores these on the
+ * source file's `parseDiagnostics` (an internal field), so read it through `Reflect` + a runtime
+ * guard rather than a cast — a future TS that drops/renames it simply yields "no error".
+ */
+function firstSyntaxError(sf: ts.SourceFile): ts.Diagnostic | undefined {
+  const raw: unknown = Reflect.get(sf, "parseDiagnostics");
+  if (!Array.isArray(raw)) return undefined;
+  for (const d of raw) {
+    if (isErrorDiagnostic(d)) return d;
+  }
+  return undefined;
+}
+
+function isErrorDiagnostic(d: unknown): d is ts.Diagnostic {
+  return (
+    typeof d === "object" &&
+    d !== null &&
+    "messageText" in d &&
+    "category" in d &&
+    d.category === ts.DiagnosticCategory.Error
+  );
 }

@@ -66,6 +66,13 @@ describe("extractMetaLiteral", () => {
       /No `meta` declaration/,
     );
   });
+
+  it("reports a syntax error as such, not 'No meta declaration found'", () => {
+    const broken = 'export const meta = { name: "x", triggers: ['; // unterminated
+    expect(() => extractMetaLiteral(broken)).toThrow(MetaExtractionError);
+    expect(() => extractMetaLiteral(broken)).toThrow(/syntax error/);
+    expect(() => extractMetaLiteral(broken)).toThrow(/index\.ts:\d+:\d+/);
+  });
 });
 
 describe("extractManifest", () => {

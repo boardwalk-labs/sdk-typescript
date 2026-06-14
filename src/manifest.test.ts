@@ -29,9 +29,13 @@ describe("workflowManifestSchema — core", () => {
       budget: { max_usd: 2.5, max_duration_seconds: 600 },
       concurrency: { mode: "serial" },
     };
-    const m = workflowManifestSchema.parse(full);
-    expect(m.secrets).toEqual([{ name: "GITHUB_TOKEN" }]);
-    expect(m.workspace).toEqual({ persist: ["memory/triager", "cache"] });
+    // toEqual on the WHOLE object — the union-stripping failure mode this repo guards against drops
+    // fields silently, so assert every input field survives AND the schema defaults land exactly.
+    expect(workflowManifestSchema.parse(full)).toEqual({
+      ...full,
+      runs_on: "boardwalk/linux",
+      callable_by: "anyone_in_org",
+    });
   });
 
   it("rejects unknown fields (no silent drift)", () => {
@@ -65,8 +69,10 @@ describe("workflowManifestSchema — core", () => {
       expect.unreachable();
     } catch (e) {
       expect(e).toBeInstanceOf(MetaValidationError);
-      expect((e as Error).message).toContain("name");
-      expect((e as Error).message).toContain("triggers");
+      // Narrow via instanceof instead of an `as Error` cast (owner directive: no casts in tests).
+      const message = e instanceof Error ? e.message : String(e);
+      expect(message).toContain("name");
+      expect(message).toContain("triggers");
     }
   });
 });
@@ -147,7 +153,10 @@ describe("platform-extension fields", () => {
       include_defaults: true,
     });
     expect(m.callable_by).toEqual({ roles: ["admin", "member"] });
-    expect(m.notifications).toHaveLength(2);
+    expect(m.notifications).toEqual([
+      { on: "failure", channel: "email", target: "ops@example.com" },
+      { on: "budget_exceeded", channel: "email", target: "ops@example.com" },
+    ]);
   });
 
   it("rejects a template on budget_exceeded notifications", () => {

@@ -19,6 +19,7 @@ import type {
   ArtifactBody,
   ArtifactRef,
   CallOptions,
+  JsonSchema,
   JsonValue,
   PhaseOptions,
   SleepArg,
@@ -38,14 +39,23 @@ export function phase(name: string, opts?: PhaseOptions): void {
 }
 
 /**
- * Run an agent leaf to completion. Without `opts.schema`, resolves to the leaf's final text
- * (`T` defaults to `string`); with a schema, resolves to the validated object — pass the
- * expected type, e.g. `await agent<Groups>(prompt, { schema })`. Omit `opts.model` to let the
- * provider route automatically (the default `boardwalk` provider on every engine; your own
- * keys only via an explicit provider). Capabilities (`tools`, `mcp`, `skills`, `memory`) are
- * PER-AGENT — each call brings its own; the manifest declares none of them.
+ * Run an agent leaf to completion. Two typed forms, by whether you pass a `schema`:
+ *  - `agent(prompt, opts?)` (no `schema`) → the leaf's final text (`Promise<string>`).
+ *  - `agent<Shape>(prompt, { schema })` → the schema-validated object (`Promise<Shape>`); name the
+ *    expected type. The run fails if the model's output doesn't validate.
+ *
+ * Asking for a typed result WITHOUT a schema (`agent<Shape>(prompt)`) is a type error: there would
+ * be nothing to validate against, so the value would really be a string. Omit `opts.model` to let
+ * the provider route automatically (the default `boardwalk` provider on every engine; your own keys
+ * only via an explicit provider). Capabilities (`tools`, `mcp`, `skills`, `memory`) are PER-AGENT —
+ * each call brings its own; the manifest declares none of them.
  */
+export function agent<T>(prompt: string, opts: AgentOptions & { schema: JsonSchema }): Promise<T>;
+export function agent(prompt: string, opts?: AgentOptions): Promise<string>;
 export async function agent<T = string>(prompt: string, opts?: AgentOptions): Promise<T> {
+  // The host returns `unknown`; the overloads above are the public contract. With a `schema` the
+  // host validated the value (best-effort; the run fails on mismatch) → `T`; without one it is the
+  // leaf's final text → `string` (the `T = string` default). The cast is confined to this boundary.
   return (await requireHost().agent(prompt, opts)) as T;
 }
 

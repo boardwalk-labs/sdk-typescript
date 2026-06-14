@@ -59,19 +59,41 @@ describe("schema round-trips", () => {
       reason: "complete",
       usage: { inputTokens: 100, outputTokens: 20 },
     },
+    { ...ENVELOPE, kind: "text_start", blockId: "b1" },
     { ...ENVELOPE, kind: "text_delta", blockId: "b1", text: "chunk" },
+    { ...ENVELOPE, kind: "text_end", blockId: "b1" },
     { ...ENVELOPE, kind: "tool_call_start", toolCallId: "tc1", toolName: "web_search" },
+    { ...ENVELOPE, kind: "tool_call_input_delta", toolCallId: "tc1", partialJson: '{"q":"bo' },
+    {
+      ...ENVELOPE,
+      kind: "tool_call_input_complete",
+      toolCallId: "tc1",
+      input: { q: "boardwalk" },
+    },
+    { ...ENVELOPE, kind: "tool_call_executing", toolCallId: "tc1" },
     {
       ...ENVELOPE,
       kind: "tool_call_result",
       toolCallId: "tc1",
       result: { kind: "search", humanSummary: "3 hits", data: { hits: 3 } },
     },
+    {
+      ...ENVELOPE,
+      kind: "tool_call_error",
+      toolCallId: "tc1",
+      error: { code: "TOOL_FAILED", message: "boom" },
+    },
     { ...ENVELOPE, kind: "reasoning_delta", text: "thinking…" },
   ];
 
   it.each(samples.map((s) => [s.kind, s] as const))("round-trips %s with toEqual", (_kind, ev) => {
     expect(runEventSchema.parse(ev)).toEqual(ev);
+  });
+
+  it("has a round-trip sample for every event kind (no kind left untested)", () => {
+    const schemaKinds = new Set(runEventSchema.options.map((o) => o.shape.kind.value));
+    const sampleKinds = new Set(samples.map((s) => s.kind));
+    expect(sampleKinds).toEqual(schemaKinds);
   });
 
   it("rejects unknown kinds and extra fields", () => {
