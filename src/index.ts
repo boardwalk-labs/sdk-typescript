@@ -4,7 +4,7 @@
 //
 //   import { agent, workflows, sleep, secrets, input, type WorkflowMeta } from "@boardwalk-labs/workflow"
 //
-//   export const meta = { name: "x", triggers: [{ kind: "manual" }] } satisfies WorkflowMeta
+//   export const meta = { slug: "x", triggers: [{ kind: "manual" }] } satisfies WorkflowMeta
 //
 //   const groups = await agent("group failures", { schema: GROUPS })
 //   await parallel(groups.map((g) => () => workflows.call("file-issue", g)))
