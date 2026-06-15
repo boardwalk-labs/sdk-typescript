@@ -206,7 +206,12 @@ export interface Workspace {
  * the program. Validated by `workflowManifestSchema`; unknown fields are errors.
  */
 export interface WorkflowMeta {
-  name: string;
+  /** The workflow's identity: a URL-safe slug (alphanumeric + hyphens), stable across the program's
+   *  life. Referenced by the CLI, `workflows.call`, and the API. The human label is `title`. */
+  slug: string;
+  /** Optional human-readable display label (free text, one line). UIs fall back to a title-cased
+   *  slug when this is omitted, so set it only when the slug doesn't read well. */
+  title?: string;
   description?: string;
   // NOTE: there is NO workflow-level `model`/`provider`. A workflow needn't do any LLM work, so
   // it shouldn't have to declare a model. Each `agent()` call names its own model (or omits it

@@ -16,13 +16,23 @@ import { z } from "zod";
 // Shared scalars
 // ============================================================================
 
-const NAME_RE = /^[a-zA-Z0-9-]+$/;
+const SLUG_RE = /^[a-zA-Z0-9-]+$/;
 
-const workflowName = z
+/** The workflow's identity: a URL-safe slug, stable across the program's life (referenced by the
+ *  CLI, `workflows.call`, and the API). The human-readable label is `title`, not this. */
+const workflowSlug = z
   .string()
   .min(1)
   .max(100)
-  .regex(NAME_RE, "name must be alphanumeric with hyphens");
+  .regex(SLUG_RE, "slug must be alphanumeric with hyphens");
+
+/** The workflow's display label — free text, author-controlled. Falls back to a title-cased slug
+ *  in UIs when omitted. One line only. */
+const workflowTitle = z
+  .string()
+  .min(1)
+  .max(200)
+  .refine((s) => !s.includes("\n"), "title must be a single line");
 
 /** A short identifier (tool/MCP/skill/secret names). */
 const shortName = z.string().min(1).max(120);
@@ -188,7 +198,7 @@ const permissionsSchema = z.strictObject({
 
 const callableBySchema = z.union([
   z.strictObject({ roles: z.array(z.enum(["owner", "admin", "member", "viewer"])).min(1) }),
-  z.strictObject({ workflows: z.array(workflowName).min(1) }),
+  z.strictObject({ workflows: z.array(workflowSlug).min(1) }),
   z.enum(["anyone_in_org", "users_only", "workflows_only"]),
 ]);
 
@@ -220,7 +230,8 @@ const notificationSchema = z.union([
 // ============================================================================
 
 export const workflowManifestSchema = z.strictObject({
-  name: workflowName,
+  slug: workflowSlug,
+  title: workflowTitle.optional(),
   description: z.string().max(1000).optional(),
   triggers: z.array(triggerSchema).min(1),
   // NO top-level `secrets` — the secret allowlist is `permissions.secrets` (a secret you may read

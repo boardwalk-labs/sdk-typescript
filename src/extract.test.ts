@@ -7,14 +7,14 @@ describe("extractMetaLiteral", () => {
   it("extracts a plain literal exactly as written (no defaults)", () => {
     const src = `
       export const meta = {
-        name: "hello",
+        slug: "hello",
         triggers: [{ kind: "manual" }],
         budget: { max_usd: 2.5 },
       };
       const x = await fetch("https://example.com"); // program body — irrelevant to extraction
     `;
     expect(extractMetaLiteral(src)).toEqual({
-      name: "hello",
+      slug: "hello",
       triggers: [{ kind: "manual" }],
       budget: { max_usd: 2.5 },
     });
@@ -24,18 +24,18 @@ describe("extractMetaLiteral", () => {
     const src = `
       import type { WorkflowMeta } from "@boardwalk-labs/workflow";
       export const meta = ({
-        name: "x",
+        slug: "x",
         triggers: [{ kind: "manual" }] as const,
       }) satisfies WorkflowMeta;
     `;
-    expect(extractMetaLiteral(src)).toEqual({ name: "x", triggers: [{ kind: "manual" }] });
+    expect(extractMetaLiteral(src)).toEqual({ slug: "x", triggers: [{ kind: "manual" }] });
   });
 
   it("handles template strings, negative numbers, numeric separators, booleans, null", () => {
     const src =
-      "export const meta = { name: `x`, n: -3, big: 1_000, on: true, off: false, nil: null };";
+      "export const meta = { slug: `x`, n: -3, big: 1_000, on: true, off: false, nil: null };";
     expect(extractMetaLiteral(src, { fileName: "index.js" })).toEqual({
-      name: "x",
+      slug: "x",
       n: -3,
       big: 1000,
       on: true,
@@ -46,12 +46,12 @@ describe("extractMetaLiteral", () => {
 
   it("rejects variables, calls, spreads, shorthand, computed keys — with file:line:col", () => {
     const cases: [string, RegExp][] = [
-      ['const m = {}; export const meta = { name: "x", extra: m };', /pure literals/],
-      ['export const meta = defineMeta({ name: "x" });', /defineMeta/],
+      ['const m = {}; export const meta = { slug: "x", extra: m };', /pure literals/],
+      ['export const meta = defineMeta({ slug: "x" });', /defineMeta/],
       ["const a = {}; export const meta = { ...a };", /spread/],
       ['const name = "x"; export const meta = { name };', /shorthand/],
       ['export const meta = { ["na" + "me"]: "x" };', /computed keys|pure literals/],
-      ["export const meta = { name: `x${1}` };", /pure literals/],
+      ["export const meta = { slug: `x${1}` };", /pure literals/],
       ["export const meta = { tags: [1, , 3] };", /array holes/],
     ];
     for (const [src, re] of cases) {
@@ -68,7 +68,7 @@ describe("extractMetaLiteral", () => {
   });
 
   it("reports a syntax error as such, not 'No meta declaration found'", () => {
-    const broken = 'export const meta = { name: "x", triggers: ['; // unterminated
+    const broken = 'export const meta = { slug: "x", triggers: ['; // unterminated
     expect(() => extractMetaLiteral(broken)).toThrow(MetaExtractionError);
     expect(() => extractMetaLiteral(broken)).toThrow(/syntax error/);
     expect(() => extractMetaLiteral(broken)).toThrow(/index\.ts:\d+:\d+/);
@@ -77,15 +77,15 @@ describe("extractMetaLiteral", () => {
 
 describe("extractManifest", () => {
   it("extracts and validates in one step, applying schema defaults", () => {
-    const src = `export const meta = { name: "hello", triggers: [{ kind: "manual" }] };`;
+    const src = `export const meta = { slug: "hello", triggers: [{ kind: "manual" }] };`;
     const manifest = extractManifest(src);
-    expect(manifest.name).toBe("hello");
+    expect(manifest.slug).toBe("hello");
     expect(manifest.runs_on).toBe("boardwalk/linux");
     expect(manifest.concurrency).toEqual({ mode: "unlimited" });
   });
 
   it("surfaces schema violations from a valid literal", () => {
-    const src = `export const meta = { name: "hello", triggers: [] };`;
+    const src = `export const meta = { slug: "hello", triggers: [] };`;
     expect(() => extractManifest(src)).toThrow(/triggers/);
   });
 });

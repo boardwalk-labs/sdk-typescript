@@ -6,7 +6,8 @@ Author **Boardwalk workflows** in plain TypeScript — agent loops, schedules, d
 import { agent, output, secrets, type WorkflowMeta } from "@boardwalk-labs/workflow";
 
 export const meta = {
-  name: "morning-digest",
+  slug: "morning-digest",
+  title: "Morning Digest",
   description: "Summarize my open issues every weekday at 9am",
   triggers: [{ kind: "cron", expr: "0 9 * * 1-5" }],
   permissions: { secrets: [{ name: "GITHUB_TOKEN" }] },
@@ -35,7 +36,7 @@ A workflow is **a script**: the `meta` export is a **pure literal** (engines der
 
 - **`agent(prompt, opts?)`** — run an agent loop and get its final text (or `schema`-validated JSON). `model` is optional: name one explicitly, or let the engine resolve it. Loops can use **tools** (built-in or program-defined), **MCP servers**, **skills**, and **memory** — each brought **per call** on `agent()`; the manifest declares none of them.
 - **`sleep(ms | { until })`** — durable wait; the run holds, locals survive.
-- **`workflows.call(name, input)`** — durably invoke another workflow and await its result; idempotent across restarts. `workflows.run` is the fire-and-forget sibling.
+- **`workflows.call(slug, input)`** — durably invoke another workflow by its slug and await its result; idempotent across restarts. `workflows.run` is the fire-and-forget sibling.
 - **`secrets.get(name)`** — read a secret declared in `permissions.secrets`. Resolved from your `.env` locally, from the encrypted vault on hosted Boardwalk. Secret values never reach model context — the SDK contract requires engines to redact them.
 - **`output(value)`** — declare the run's result.
 - **Memory = a persistent directory, per agent.** `agent(prompt, { memory: "memory/triager" })` names any workspace-relative directory; the engine auto-persists it across runs — no declaration needed. The loop gets read/write file tools scoped to it, and your code can read and write the same files. (`workspace.persist` is the separate knob for non-memory state your program manages directly.)

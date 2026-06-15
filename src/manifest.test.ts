@@ -3,21 +3,23 @@
 import { describe, expect, it } from "vitest";
 import { MetaValidationError, validateMeta, workflowManifestSchema } from "./manifest.js";
 
-const MINIMAL = { name: "hello", triggers: [{ kind: "manual" }] };
+const MINIMAL = { slug: "hello", triggers: [{ kind: "manual" }] };
 
 describe("workflowManifestSchema — core", () => {
   it("accepts a minimal manifest and applies defaults", () => {
     const m = validateMeta(MINIMAL);
-    expect(m.name).toBe("hello");
+    expect(m.slug).toBe("hello");
+    expect(m.title).toBeUndefined();
     expect(m.triggers).toEqual([{ kind: "manual" }]);
     expect(m.concurrency).toEqual({ mode: "unlimited" });
     expect(m.runs_on).toBe("boardwalk/linux");
     expect(m.callable_by).toBe("anyone_in_org");
   });
 
-  it("round-trips a full manifest without stripping fields", () => {
+  it("round-trips a full manifest (slug + title) without stripping fields", () => {
     const full = {
-      name: "morning-digest",
+      slug: "morning-digest",
+      title: "Morning Digest",
       description: "Summarize my open issues",
       triggers: [
         { kind: "cron", expr: "0 9 * * 1-5", timezone: "America/Anchorage" },
@@ -66,20 +68,27 @@ describe("workflowManifestSchema — core", () => {
     ).toThrow(MetaValidationError);
   });
 
-  it("rejects bad names and missing triggers", () => {
-    expect(() => validateMeta({ name: "has space", triggers: [{ kind: "manual" }] })).toThrow();
-    expect(() => validateMeta({ name: "x", triggers: [] })).toThrow(/triggers/);
+  it("rejects bad slugs and missing triggers", () => {
+    expect(() => validateMeta({ slug: "has space", triggers: [{ kind: "manual" }] })).toThrow();
+    expect(() => validateMeta({ slug: "x", triggers: [] })).toThrow(/triggers/);
+  });
+
+  it("rejects a top-level `name` (renamed to `slug`) and a multi-line title", () => {
+    expect(() => validateMeta({ ...MINIMAL, name: "morning-digest" })).toThrow(MetaValidationError);
+    expect(() => validateMeta({ ...MINIMAL, title: "line one\nline two" })).toThrow(
+      MetaValidationError,
+    );
   });
 
   it("collects every issue with its path in the error message", () => {
     try {
-      validateMeta({ name: "", triggers: [{ kind: "cron", expr: "bad" }] });
+      validateMeta({ slug: "", triggers: [{ kind: "cron", expr: "bad" }] });
       expect.unreachable();
     } catch (e) {
       expect(e).toBeInstanceOf(MetaValidationError);
       // Narrow via instanceof instead of an `as Error` cast (owner directive: no casts in tests).
       const message = e instanceof Error ? e.message : String(e);
-      expect(message).toContain("name");
+      expect(message).toContain("slug");
       expect(message).toContain("triggers");
     }
   });
