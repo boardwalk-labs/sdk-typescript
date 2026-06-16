@@ -27,7 +27,8 @@ interface AgentOptions {
   // Omitted → the provider routes automatically (the default `boardwalk` provider's Auto lane).
   provider?: string; // Who fulfills the call. Default `boardwalk` on EVERY engine; BYO keys only when explicitly named.
   schema?: JsonSchema; // Validates parsed JSON output; run fails on mismatch.
-  tools?: readonly (string | ToolDef)[]; // PER-AGENT: engine built-in names + inline program-defined tools.
+  tools?: readonly ToolDef[]; // PER-AGENT: inline program-defined tools, added ON TOP of the default-on built-ins.
+  builtins?: "all" | "read-only" | "none" | readonly string[]; // Scopes the engine's default-on built-in tools. Default "all".
   mcp?: readonly McpServerRef[]; // PER-AGENT: inline server definitions (stdio command or http url).
   skills?: readonly string[]; // PER-AGENT: skills/<name>.md deployed alongside the program.
   memory?: string; // PER-AGENT: workspace-relative dir, auto-persisted across runs by the engine.
@@ -71,11 +72,12 @@ function phase(name: string, opts?: { id?: string }): void; // named phase bound
 
 ### 2.1.1 The `agent()` capability set (v1 — required, all engines)
 
-The loop is a real agentic loop, not bare inference. **ALL capabilities are PER-AGENT (decided 2026-06-11): each `agent()` call brings its own tools, MCP servers, skills, and memory — the manifest declares NONE of them** (no `meta.tools`/`meta.mcp`/`meta.skills`; memory needs no `workspace.persist` declaration).
+The loop is a real agentic loop, not bare inference. **The engine's built-in coding tools are ON BY DEFAULT** (`read`, `write`, `edit`, `ls`, `grep`, `glob`, `bash`, `apply_patch`, `webfetch`, `web_search`, `artifacts`, `lsp`): a plain `agent(prompt)` can already read, edit, and run commands in the run's workspace, and `builtins` scopes that set. **Everything else is PER-AGENT (decided 2026-06-11): each `agent()` call brings its own inline tools, MCP servers, skills, and memory — the manifest declares NONE of them** (no `meta.tools`/`meta.mcp`/`meta.skills`; memory needs no `workspace.persist` declaration).
 
 ```ts
-// everything is per-agent, on AgentOptions:
-tools?: readonly (string | ToolDef)[];  // engine built-in names + inline program-defined tools
+// built-ins are default-on; everything else is per-agent, on AgentOptions:
+tools?: readonly ToolDef[];             // inline program-defined tools, ON TOP of the built-ins
+builtins?: "all" | "read-only" | "none" | readonly string[]; // scopes the default-on built-in set; default "all"
 mcp?: readonly McpServerRef[];          // inline: { name, transport: "stdio" | "http", command? | url?, env?/headers? }
 skills?: readonly string[];             // skills/<name>.md deployed alongside the program
 memory?: string;                        // a workspace-relative dir, auto-persisted across runs
@@ -89,11 +91,12 @@ interface ToolDef {
 }
 ```
 
-- **Tools:** engine built-in names + inline `ToolDef`s whose `execute` runs in the program process (the trusted layer — it may use `secrets.get`; only its _return value_ enters model context, subject to redaction). An unknown built-in name fails loudly at call time.
+- **Built-in tools (default-on):** the engine's coding tools — `read`, `write`, `edit`, `ls`, `grep`, `glob`, `bash`, `apply_patch`, `webfetch`, `web_search`, `artifacts`, `lsp` — are available to every leaf with no declaration. `builtins` scopes the set: `"all"` (default) is every built-in; `"read-only"` is the non-mutating set (`read`, `ls`, `grep`, `glob`, `webfetch`, `web_search`, `lsp`, dropping `write`/`edit`/`apply_patch`/`bash`/artifact writes); `"none"` removes them entirely; a `string[]` names an explicit subset. Built-ins that need host infrastructure (`web_search`, `artifacts`, `webfetch`) are served by the engine the run executes on; an engine without that backend fails loudly. An unknown built-in name fails loudly at call time.
+- **Inline tools:** program-defined `ToolDef`s in `tools`, added ON TOP of the built-ins, whose `execute` runs in the program process (the trusted layer — it may use `secrets.get`; only its _return value_ enters model context, subject to redaction).
 - **MCP:** the loop connects to the call's inline `McpServerRef`s and exposes their tools to the model. The program is the trusted layer — it supplies credentials in `env`/`headers` directly (e.g. from `secrets.get`); no interpolation syntax.
 - **Skills:** user-authored markdown loaded into the loop's context by name, resolved from the `skills/` directory deployed alongside the program (`skills/<name>.md`). A missing skill file fails loudly at call time.
 - **Memory is not a separate system — it is a persistent directory, per agent.** `agent(prompt, { memory: "memory/triager" })` points the loop at a workspace-relative directory; the **engine persists every memory directory automatically across runs** (hydrated at run start, written back at successful run end — no declaration anywhere). The loop gets read/write file tools scoped to that directory and loads its index into context at turn start; the _program_ may read/write the same files in plain code (seed it, inspect it, prune it). Multiple agents may use separate directories or deliberately share one. Rules: paths are workspace-relative; `..` (or any escape) is a validation error. `workspace.persist` remains the separate, program-level persistence knob for non-memory state.
-- Per-call selection defaults to **none** (a plain `agent(prompt)` is still just inference); an unknown built-in tool or a missing skill file is a loud error, never silent degradation.
+- Built-ins default to **`"all"`** (a plain `agent(prompt)` can already work the workspace); inline `tools`, `mcp`, `skills`, and `memory` default to **none**. An unknown built-in name or a missing skill file is a loud error, never silent degradation.
 - Secret-redaction applies to all of it: tool args/results, MCP traffic, skill content, and memory content are scrubbed of known secret values before reaching the model.
 
 ### 2.2 `meta` / manifest — v1 core fields

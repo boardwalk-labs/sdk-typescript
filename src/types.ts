@@ -33,9 +33,12 @@ export interface ToolDef {
 }
 
 /**
- * Options for an {@link import("./index.js").agent} leaf call. Capabilities are PER-AGENT:
- * each call brings its own `tools`, `mcp` servers, `skills`, and `memory` — the manifest
- * declares none of them. A plain `agent(prompt)` is simple inference.
+ * Options for an {@link import("./index.js").agent} leaf call. The engine's built-in coding
+ * tools (`read`, `write`, `edit`, `ls`, `grep`, `glob`, `bash`, `apply_patch`, `webfetch`,
+ * `web_search`, `artifacts`, `lsp`) are ON BY DEFAULT — a plain `agent(prompt)` can already
+ * read, edit, and run commands in the run's workspace; `builtins` scopes that set. Everything
+ * else is PER-AGENT: each call brings its own inline `tools` (added on top of the built-ins),
+ * `mcp` servers, `skills`, and `memory` — the manifest declares none of them.
  */
 export interface AgentOptions {
   /**
@@ -67,10 +70,24 @@ export interface AgentOptions {
    */
   schema?: JsonSchema;
   /**
-   * Tools this leaf may use: engine built-in names, plus inline program-defined
-   * {@link ToolDef}s. Per-agent — no meta declaration. Defaults to none.
+   * Inline program-defined {@link ToolDef}s, added ON TOP of the engine's built-in tools
+   * (which are default-on; scope them with `builtins`). Built-ins are no longer named here to
+   * get them — `tools` is ONLY the leaf's own inline tools. Per-agent — no meta declaration.
+   * Defaults to none.
    */
-  tools?: readonly (string | ToolDef)[];
+  tools?: readonly ToolDef[];
+  /**
+   * Which engine built-in tools this leaf gets. Defaults to `"all"`.
+   * - `"all"` — every engine built-in is available.
+   * - `"read-only"` — the non-mutating set (`read`, `ls`, `grep`, `glob`, `webfetch`,
+   *   `web_search`, `lsp`); drops `write`, `edit`, `apply_patch`, `bash`, and artifact writes.
+   * - `"none"` — no built-ins; the leaf has only its inline {@link tools}.
+   * - `string[]` — an explicit subset of built-in names.
+   *
+   * Built-ins that need host infrastructure (`web_search`, `artifacts`, `webfetch`) are served
+   * by the engine the run executes on; an engine without that backend fails loudly.
+   */
+  builtins?: "all" | "read-only" | "none" | readonly string[];
   /**
    * MCP servers this leaf connects to, defined inline ({@link McpServerRef}). Per-agent — no
    * meta declaration; the program supplies credentials directly (it is the trusted layer).

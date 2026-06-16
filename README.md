@@ -34,7 +34,7 @@ A workflow is **a script**: the `meta` export is a **pure literal** (engines der
 
 ## The primitives
 
-- **`agent(prompt, opts?)`** — run an agent loop and get its final text (or `schema`-validated JSON). `model` is optional: name one explicitly, or let the engine resolve it. Loops can use **tools** (built-in or program-defined), **MCP servers**, **skills**, and **memory** — each brought **per call** on `agent()`; the manifest declares none of them.
+- **`agent(prompt, opts?)`** — run an agent loop and get its final text (or `schema`-validated JSON). `model` is optional: name one explicitly, or let the engine resolve it. The engine's **built-in coding tools** (read/write/edit/ls/grep/glob/bash/apply_patch/webfetch/web_search/artifacts/lsp) are **on by default** — a plain `agent(prompt)` can already work the run's workspace; `builtins` scopes them (`"all"` · `"read-only"` · `"none"` · a subset). Everything else is brought **per call**: inline **tools**, **MCP servers**, **skills**, and **memory**; the manifest declares none of them.
 - **`sleep(ms | { until })`** — durable wait; the run holds, locals survive.
 - **`workflows.call(slug, input)`** — durably invoke another workflow by its slug and await its result; idempotent across restarts. `workflows.run` is the fire-and-forget sibling.
 - **`secrets.get(name)`** — read a secret declared in `permissions.secrets`. Resolved from your `.env` locally, from the encrypted vault on hosted Boardwalk. Secret values never reach model context — the SDK contract requires engines to redact them.
