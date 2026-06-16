@@ -187,6 +187,16 @@ const toolCallExecuting = z.strictObject({
   kind: z.literal("tool_call_executing"),
   toolCallId: z.string(),
 });
+const toolOutputDelta = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("tool_output_delta"),
+  toolCallId: z.string(),
+  /** Which standard stream this chunk came from. */
+  stream: z.enum(["stdout", "stderr"]),
+  /** A chunk of the tool's live output (e.g. a long shell command), as it is produced. The final
+   *  `tool_call_result` still carries the complete (bounded) output; deltas are the live view. */
+  text: z.string(),
+});
 const toolCallResult = z.strictObject({
   ...envelopeShape,
   kind: z.literal("tool_call_result"),
@@ -219,6 +229,7 @@ export const runEventSchema = z.discriminatedUnion("kind", [
   toolCallInputDelta,
   toolCallInputComplete,
   toolCallExecuting,
+  toolOutputDelta,
   toolCallResult,
   toolCallError,
   reasoningDelta,
@@ -254,6 +265,7 @@ const KIND_TO_CHANNEL: Record<RunEventKind, Channel> = {
   tool_call_input_delta: "agent",
   tool_call_input_complete: "agent",
   tool_call_executing: "agent",
+  tool_output_delta: "agent",
   tool_call_result: "agent",
   tool_call_error: "agent",
   reasoning_delta: "agent",

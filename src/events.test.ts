@@ -73,6 +73,13 @@ describe("schema round-trips", () => {
     { ...ENVELOPE, kind: "tool_call_executing", toolCallId: "tc1" },
     {
       ...ENVELOPE,
+      kind: "tool_output_delta",
+      toolCallId: "tc1",
+      stream: "stdout",
+      text: "PASS src/foo.test.ts\n",
+    },
+    {
+      ...ENVELOPE,
       kind: "tool_call_result",
       toolCallId: "tc1",
       result: { kind: "search", humanSummary: "3 hits", data: { hits: 3 } },
