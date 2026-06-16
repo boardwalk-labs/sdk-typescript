@@ -22,6 +22,7 @@ import type {
   JsonSchema,
   JsonValue,
   PhaseOptions,
+  ScheduleOptions,
   SleepArg,
 } from "./types.js";
 
@@ -59,7 +60,10 @@ export async function agent<T = string>(prompt: string, opts?: AgentOptions): Pr
   return (await requireHost().agent(prompt, opts)) as T;
 }
 
-/** Cross-workflow composition: `call` (await the result) and `run` (fire-and-forget). */
+/**
+ * Cross-workflow composition: `call` (await the result), `run` (fire-and-forget now), and
+ * `schedule` (fire later / on a recurrence).
+ */
 export const workflows = {
   /**
    * Call another workflow as a durable child run. The parent HOLDS while the child runs and
@@ -80,6 +84,24 @@ export const workflows = {
       throw new Error("workflows.run is not supported by the installed engine");
     }
     return await host.runWorkflow(slug, input, opts);
+  },
+  /**
+   * Schedule another workflow to run later — once at a future instant (`at`) or on a recurrence
+   * (`cron` / `rate`). Returns the new schedule's id WITHOUT running it now. Supply exactly one of
+   * `cron`, `rate`, or `at`. The schedule is durable and OUTLIVES this run; manage it (list / pause /
+   * delete) from the control plane. Idempotent on the schedule spec, so a restarted run re-attaches
+   * to the same schedule instead of provisioning a duplicate.
+   */
+  async schedule(slug: string, input: unknown, opts: ScheduleOptions): Promise<string> {
+    const host = requireHost();
+    if (host.scheduleWorkflow === undefined) {
+      throw new Error("workflows.schedule is not supported by the installed engine");
+    }
+    const recurrences = [opts.cron, opts.rate, opts.at].filter((v) => v !== undefined).length;
+    if (recurrences !== 1) {
+      throw new Error("workflows.schedule requires exactly one of `cron`, `rate`, or `at`");
+    }
+    return await host.scheduleWorkflow(slug, input, opts);
   },
 } as const;
 
@@ -171,6 +193,7 @@ export type {
   ArtifactBody,
   ArtifactRef,
   CallOptions,
+  ScheduleOptions,
   PhaseOptions,
   SleepArg,
   JsonSchema,

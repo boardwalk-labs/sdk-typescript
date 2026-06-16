@@ -19,6 +19,7 @@ import type {
   CallOptions,
   JsonValue,
   PhaseOptions,
+  ScheduleOptions,
   SleepArg,
 } from "./types.js";
 
@@ -47,6 +48,13 @@ export interface WorkflowHost {
    * makes the `workflows.run` hook throw a clear error.
    */
   runWorkflow?(slug: string, input: unknown, opts: CallOptions | undefined): Promise<string>;
+  /**
+   * Provision a durable schedule that fires the target workflow later (one-shot `at`) or on a
+   * recurrence (`cron`/`rate`); resolve to the new schedule's id WITHOUT running it now. The
+   * schedule outlives this run. Optional — an engine that doesn't support it makes the
+   * `workflows.schedule` hook throw a clear error.
+   */
+  scheduleWorkflow?(slug: string, input: unknown, opts: ScheduleOptions): Promise<string>;
   /**
    * Store a file under the run's artifact prefix and resolve to its id + download URL.
    * Optional — an engine that doesn't support it makes the `artifacts.write` hook throw a clear error.

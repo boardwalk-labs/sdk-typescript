@@ -120,6 +120,37 @@ export interface CallOptions {
 }
 
 /**
+ * When + how often {@link import("./index.js").workflows}.schedule fires a target workflow. Supply
+ * EXACTLY ONE of `cron`, `rate`, or `at` — the recurrence is recurring (`cron`/`rate`) or one-shot
+ * (`at`). The schedule outlives the run that created it; manage it (list/pause/delete) from the
+ * control plane (REST / MCP / console), not the program.
+ */
+export interface ScheduleOptions {
+  /**
+   * Recurring on a cron expression — 5-field standard (`min hour dom mon dow`) or a provider-native
+   * `cron(...)`. Mutually exclusive with `rate` and `at`. Minute granularity (no sub-minute).
+   */
+  cron?: string;
+  /**
+   * Recurring on a fixed interval, as `"<n> <unit>"` — e.g. `"5 minutes"`, `"1 hour"`, `"7 days"`.
+   * Mutually exclusive with `cron` and `at`. Minimum interval is 1 minute.
+   */
+  rate?: string;
+  /**
+   * One-shot: fire ONCE at this instant (ISO-8601 string or `Date`), then the schedule completes.
+   * Mutually exclusive with `cron` and `rate`. For sub-minute waits inside a run, use `sleep`.
+   */
+  at?: string | Date;
+  /** IANA timezone for `cron` (e.g. `"America/Anchorage"`). Defaults to UTC. Ignored by `rate`/`at`. */
+  timezone?: string;
+  /**
+   * Idempotency key. Defaults to a deterministic key over `(creator, target, schedule spec, input)`
+   * so a restarted run re-attaches to the same schedule instead of provisioning a duplicate.
+   */
+  idempotencyKey?: string;
+}
+
+/**
  * How long {@link import("./index.js").sleep} holds the run. A bare number is milliseconds;
  * the object forms are explicit.
  */

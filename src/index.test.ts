@@ -67,6 +67,31 @@ describe("workflows", () => {
     await expect(workflows.run("child", {}, { idempotencyKey: "k" })).resolves.toBe("run_123");
     expect(runWorkflow).toHaveBeenCalledWith("child", {}, { idempotencyKey: "k" });
   });
+
+  it("schedule requires host support and surfaces a clear error without it", async () => {
+    installHost(makeHost());
+    await expect(workflows.schedule("child", {}, { at: "2026-07-01T00:00:00Z" })).rejects.toThrow(
+      /not supported/,
+    );
+  });
+
+  it("schedule resolves the schedule id and passes opts through", async () => {
+    const scheduleWorkflow = vi.fn().mockResolvedValue("sched_123");
+    installHost(makeHost({ scheduleWorkflow }));
+    const opts = { cron: "0 9 * * MON", timezone: "America/Anchorage" };
+    await expect(workflows.schedule("report", { team: "growth" }, opts)).resolves.toBe("sched_123");
+    expect(scheduleWorkflow).toHaveBeenCalledWith("report", { team: "growth" }, opts);
+  });
+
+  it("schedule rejects when zero or multiple recurrences are given", async () => {
+    const scheduleWorkflow = vi.fn().mockResolvedValue("sched_123");
+    installHost(makeHost({ scheduleWorkflow }));
+    await expect(workflows.schedule("x", {}, {})).rejects.toThrow(/exactly one/);
+    await expect(
+      workflows.schedule("x", {}, { cron: "* * * * *", rate: "5 minutes" }),
+    ).rejects.toThrow(/exactly one/);
+    expect(scheduleWorkflow).not.toHaveBeenCalled();
+  });
 });
 
 describe("sleep / secrets / phase / artifacts", () => {
