@@ -95,8 +95,12 @@ export interface AgentOptions {
    */
   mcp?: readonly McpServerRef[];
   /**
-   * Skills loadable into this leaf's context, by name — resolved from the `skills/` directory
-   * deployed alongside the program (`skills/<name>.md`). Per-agent. Defaults to none.
+   * Skills available to this leaf, by name — each resolved from `skills/<name>/SKILL.md` in the
+   * package deployed alongside the program. Loaded with PROGRESSIVE DISCLOSURE: the leaf sees a
+   * compact catalog (each skill's name + `description` from its SKILL.md frontmatter), and loads a
+   * skill's full instructions on demand via the built-in `skill` tool — which can also return a
+   * bundled resource file from the skill's folder (`skill({ name, file })`). Per-agent. Defaults to
+   * none.
    */
   skills?: readonly string[];
   /**
