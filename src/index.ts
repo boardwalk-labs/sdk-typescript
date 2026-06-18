@@ -189,6 +189,8 @@ export type {
 
 export type {
   AgentOptions,
+  ReasoningEffort,
+  ReasoningOptions,
   ToolDef,
   ArtifactBody,
   ArtifactRef,
@@ -199,6 +201,8 @@ export type {
   JsonSchema,
   JsonValue,
 } from "./types.js";
+
+export { normalizeReasoning, type NormalizedReasoning } from "./reasoning.js";
 
 export {
   workflowManifestSchema,
