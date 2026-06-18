@@ -33,19 +33,17 @@ export interface ToolDef {
 }
 
 /**
- * How much a model should reason before answering, as a single effort level. The scale and names
- * follow OpenRouter's unified `reasoning.effort` (the managed lane's backend): `minimal` spends the
- * fewest reasoning tokens (fastest time-to-answer), `xhigh` the most (deepest); `none` disables
- * reasoning entirely. Not every provider/model supports every level — an unsupported choice surfaces
- * as a provider error, never a silent downgrade.
+ * How much a model should reason before answering, as a single effort level on one unified scale:
+ * `minimal` spends the fewest reasoning tokens (fastest time-to-answer), `xhigh` the most (deepest);
+ * `none` disables reasoning entirely. Not every provider/model supports every level — an unsupported
+ * choice surfaces as a provider error, never a silent downgrade.
  */
 export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 /**
  * The full reasoning control for an {@link AgentOptions.reasoning} value — the bare-string form
- * (`reasoning: "high"`) is sugar for `{ effort: "high" }`. Mirrors OpenRouter's unified `reasoning`
- * object. Supply `effort` OR `maxTokens`, not both: they are mutually exclusive (if both are given,
- * `effort` wins and `maxTokens` is dropped).
+ * (`reasoning: "high"`) is sugar for `{ effort: "high" }`. Supply `effort` OR `maxTokens`, not both:
+ * they are mutually exclusive (if both are given, `effort` wins and `maxTokens` is dropped).
  */
 export interface ReasoningOptions {
   /** Effort level (see {@link ReasoningEffort}). Mutually exclusive with `maxTokens`. */
@@ -57,8 +55,8 @@ export interface ReasoningOptions {
    */
   maxTokens?: number;
   /**
-   * Reason internally but keep the reasoning trace OUT of the response (OpenRouter `exclude`).
-   * Defaults to false. A no-op on providers that never surface reasoning to the loop.
+   * Reason internally but keep the reasoning trace OUT of the response. Defaults to false. A no-op
+   * on providers that never surface reasoning to the loop.
    */
   exclude?: boolean;
 }
@@ -96,13 +94,13 @@ export interface AgentOptions {
    */
   provider?: string;
   /**
-   * How hard the model should think before answering — aligned with OpenRouter's unified `reasoning`
-   * control (the managed lane's backend). A bare string is shorthand for `{ effort }`:
-   * `reasoning: "high"` ≡ `reasoning: { effort: "high" }`. OMIT entirely for the provider's default
-   * (adaptive — the model sizes its own reasoning per prompt).
+   * How hard the model should think before answering — one unified `reasoning` control. A bare
+   * string is shorthand for `{ effort }`: `reasoning: "high"` ≡ `reasoning: { effort: "high" }`.
+   * OMIT entirely for the provider's default (adaptive — the model sizes its own reasoning per
+   * prompt).
    *
    * Effort scales `minimal` → `xhigh`; `none` turns reasoning off. The engine maps this ONE neutral
-   * control to each provider's wire format: OpenRouter's `reasoning` object on the managed lane,
+   * control to each provider's wire format: a unified `reasoning` object on the managed lane,
    * `reasoning_effort` for a BYO OpenAI-compatible endpoint, and `thinking`/token-budget for BYO
    * Anthropic + Bedrock. Per-agent like {@link model}/{@link provider} — never a manifest declaration.
    */

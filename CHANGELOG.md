@@ -4,6 +4,19 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.1.11
+
+### Added
+
+- `@boardwalk-labs/workflow/runtime` now re-exports `ScheduleOptions`, so an engine implementing
+  `WorkflowHost.scheduleWorkflow` can import it from the runtime entry point alongside the other
+  hook option types.
+
+### Changed
+
+- Neutralized the reasoning-effort docstrings (`ReasoningEffort` / `AgentOptions.reasoning`): the
+  effort scale is described on its own terms, with no provider/back-end name in the public types.
+
 ## 0.1.8
 
 ### Added

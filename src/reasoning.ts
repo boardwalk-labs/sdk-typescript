@@ -2,9 +2,9 @@
 
 // Neutral normalization of an `AgentOptions.reasoning` value into a canonical object — shared by
 // every engine AND the hosted broker so they agree on the author's intent BEFORE mapping it to a
-// provider's wire format. Pure logic: NO provider knowledge lives here (the OpenRouter /
-// OpenAI / Anthropic wire encoding is the engine's job); this only expands the string sugar,
-// disambiguates effort-vs-maxTokens, and drops no-ops. Tested directly.
+// provider's wire format. Pure logic: NO provider knowledge lives here (the per-provider wire
+// encoding is the engine's job); this only expands the string sugar, disambiguates
+// effort-vs-maxTokens, and drops no-ops. Tested directly.
 
 import type { ReasoningEffort, ReasoningOptions } from "./types.js";
 

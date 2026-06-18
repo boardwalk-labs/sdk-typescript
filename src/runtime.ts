@@ -23,6 +23,7 @@ export type {
   CallOptions,
   JsonValue,
   PhaseOptions,
+  ScheduleOptions,
   SleepArg,
   JsonSchema,
 } from "./types.js";

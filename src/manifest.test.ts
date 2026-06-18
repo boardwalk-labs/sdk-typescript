@@ -1,11 +1,34 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from "vitest";
-import { MetaValidationError, validateMeta, workflowManifestSchema } from "./manifest.js";
+import {
+  MetaValidationError,
+  validateMeta,
+  workflowManifestSchema,
+  type WorkflowManifest,
+} from "./manifest.js";
+import type { WorkflowMeta } from "./meta.js";
+
+// Compile-time contract guard (CODE_QUALITY §7.3 / SPEC §2.3): the author-facing `WorkflowMeta`
+// (meta.ts) is hand-written for readable JSDoc, NOT derived from the schema, so the two can drift.
+// A `toEqualTypeOf` is impossible (the meta type uses `readonly` arrays; the schema yields mutable
+// ones), but their FIELD SET must stay identical — a field added to one and not the other is the
+// silent-drift failure mode. This fails `tsc` (so `pnpm typecheck` + CI) the moment the key sets
+// diverge; per-field shapes stay covered by the runtime round-trips below.
+type TypeEquals<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type Expect<T extends true> = T;
 
 const MINIMAL = { slug: "hello", triggers: [{ kind: "manual" }] };
 
 describe("workflowManifestSchema — core", () => {
+  it("WorkflowMeta and the manifest schema declare the same field set", () => {
+    // The type annotation fails `tsc` if the key sets diverge (the real guard); the runtime assert
+    // keeps the typed binding referenced so it isn't flagged unused.
+    const keysMatch: Expect<TypeEquals<keyof WorkflowMeta, keyof WorkflowManifest>> = true;
+    expect(keysMatch).toBe(true);
+  });
+
   it("accepts a minimal manifest and applies defaults", () => {
     const m = validateMeta(MINIMAL);
     expect(m.slug).toBe("hello");
