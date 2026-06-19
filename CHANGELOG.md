@@ -4,6 +4,28 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.1.12
+
+### Added
+
+- **Durable suspension hooks.** `humanInput(opts)` pauses the run for a person to answer and resumes
+  with their validated response; the `input` form is a discriminated union — `text`, `choice`, or
+  `multiselect` (each with an optional trailing open-text entry) — and the return type follows the
+  kind. `step.run(name, fn)` runs a side-effecting function once and memoizes its result so it is not
+  re-run on a resume. Both are facades over new OPTIONAL `WorkflowHost` methods (`humanInput`,
+  `step`), so an engine that doesn't implement them makes the hook throw a clear error (the
+  `workflows.run` / `artifacts.write` pattern).
+- `AgentOptions.humanInput?: boolean` — opt a leaf into the `human_input` tool, letting the model
+  pause the run mid-loop to ask a person (off by default).
+- Run-event kinds on the `lifecycle` channel: `suspended` (`reason: "sleep" | "human_input" |
+"child"`, optional `wakeAt`), `resumed`, `human_input_requested` (`requestId`, `key`, `prompt`),
+  and `human_input_resolved` (`requestId`, `key`).
+- Run statuses `sleeping`, `awaiting_input`, and `waiting_for_child` (non-terminal suspended states).
+- `@boardwalk-labs/workflow/runtime` re-exports the human-input option/result types for engines
+  implementing `WorkflowHost.humanInput`.
+
+All changes are additive and backward-compatible.
+
 ## 0.1.11
 
 ### Added

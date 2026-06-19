@@ -19,6 +19,14 @@ import type {
   ArtifactBody,
   ArtifactRef,
   CallOptions,
+  HumanChoiceResult,
+  HumanInputChoiceSpec,
+  HumanInputMultiSelectSpec,
+  HumanInputOptions,
+  HumanInputResult,
+  HumanInputTextSpec,
+  HumanMultiSelectResult,
+  HumanTextResult,
   JsonSchema,
   JsonValue,
   PhaseOptions,
@@ -105,10 +113,59 @@ export const workflows = {
   },
 } as const;
 
-/** Hold the run for a duration or until a timestamp (the run stays held while it waits; locals survive). */
+/**
+ * Pause the run for a duration or until a timestamp. The engine HOLDS the task for short waits
+ * (locals survive) and SUSPENDS it for long ones (the task is released and re-acquired on wake),
+ * by an engine threshold; either way this resolves once the time has elapsed.
+ */
 export async function sleep(arg: SleepArg): Promise<void> {
   await requireHost().sleep(arg);
 }
+
+/**
+ * Pause the run for a human to answer, then resume with their validated response. The run SUSPENDS
+ * while it waits — the task is released and re-acquired when a person responds via the control
+ * plane (web / MCP / REST / CLI), so idle wait time is not billed. The return type follows the
+ * `input.kind`:
+ *  - `{ kind: "text" }` → `{ value: string }`
+ *  - `{ kind: "choice", options }` → `{ value: string, isOther: boolean }`
+ *  - `{ kind: "multiselect", options }` → `{ values: string[], other?: string }`
+ *
+ * For a human gate the model itself can open mid-loop, enable the `human_input` tool on an
+ * `agent()` call (`agent(prompt, { humanInput: true })`) instead.
+ */
+export function humanInput(
+  opts: HumanInputOptions & { input: HumanInputTextSpec },
+): Promise<HumanTextResult>;
+export function humanInput(
+  opts: HumanInputOptions & { input: HumanInputChoiceSpec },
+): Promise<HumanChoiceResult>;
+export function humanInput(
+  opts: HumanInputOptions & { input: HumanInputMultiSelectSpec },
+): Promise<HumanMultiSelectResult>;
+export async function humanInput(opts: HumanInputOptions): Promise<HumanInputResult> {
+  const host = requireHost();
+  if (host.humanInput === undefined) {
+    throw new Error("humanInput is not supported by the installed engine");
+  }
+  return host.humanInput(opts);
+}
+
+/** Durable steps: run a side-effecting function once and memoize its result across resumes. */
+export const step = {
+  /**
+   * Run `fn` exactly once and memoize its (JSON-serializable) result under `name`. On a resume the
+   * cached value is returned WITHOUT re-running `fn` — the escape hatch for arbitrary I/O that must
+   * survive a suspend (everything else re-runs on replay unless it goes through a durable seam).
+   */
+  async run<T>(name: string, fn: () => Promise<T> | T): Promise<T> {
+    const host = requireHost();
+    if (host.step === undefined) {
+      throw new Error("step.run is not supported by the installed engine");
+    }
+    return (await host.step(name, fn)) as T;
+  },
+} as const;
 
 /** Granted secrets, resolved lazily and fail-closed against `permissions.secrets`. */
 export const secrets = {
@@ -198,6 +255,15 @@ export type {
   ScheduleOptions,
   PhaseOptions,
   SleepArg,
+  HumanInputOptions,
+  HumanInputSpec,
+  HumanInputTextSpec,
+  HumanInputChoiceSpec,
+  HumanInputMultiSelectSpec,
+  HumanInputResult,
+  HumanTextResult,
+  HumanChoiceResult,
+  HumanMultiSelectResult,
   JsonSchema,
   JsonValue,
 } from "./types.js";

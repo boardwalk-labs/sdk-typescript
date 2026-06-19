@@ -17,6 +17,8 @@ import type {
   ArtifactBody,
   ArtifactRef,
   CallOptions,
+  HumanInputOptions,
+  HumanInputResult,
   JsonValue,
   PhaseOptions,
   ScheduleOptions,
@@ -38,7 +40,11 @@ export interface WorkflowHost {
   agent(prompt: string, opts: AgentOptions | undefined): Promise<unknown>;
   /** Dispatch a durable child run and resolve to its output (parent holds while it runs). */
   callWorkflow(slug: string, input: unknown, opts: CallOptions | undefined): Promise<unknown>;
-  /** Hold the run for the requested duration (the run stays held while it waits; locals survive). */
+  /**
+   * Pause the run for the requested duration. The engine may HOLD the task (short waits, locals
+   * survive) or SUSPEND it (long waits — the task is released and re-acquired on wake); either way
+   * the hook resolves once the time has elapsed.
+   */
   sleep(arg: SleepArg): Promise<void>;
   /** Resolve a granted secret to its plaintext value (fail-closed against `permissions.secrets`). */
   getSecret(name: string): Promise<string>;
@@ -65,6 +71,17 @@ export interface WorkflowHost {
     body: ArtifactBody,
     metadata: Record<string, unknown> | undefined,
   ): Promise<ArtifactRef>;
+  /**
+   * Pause the run for a human to answer and resolve to their validated response. Optional — an
+   * engine that doesn't support it makes the `humanInput` hook throw a clear error.
+   */
+  humanInput?(opts: HumanInputOptions): Promise<HumanInputResult>;
+  /**
+   * Run `fn` once and memoize its result under `name`; on replay return the cached value WITHOUT
+   * re-running `fn`. Optional — an engine that doesn't support it makes the `step.run` hook throw a
+   * clear error.
+   */
+  step?(name: string, fn: () => unknown): Promise<unknown>;
 }
 
 let currentHost: WorkflowHost | null = null;

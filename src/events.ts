@@ -79,6 +79,11 @@ const runStatusValues = [
   "queued",
   "pending",
   "running",
+  // Suspended (non-terminal, no worker, no lease, zero running compute): a long sleep, a
+  // human-input gate, or a long child-wait. The run resumes by re-dispatch + journal replay.
+  "sleeping",
+  "awaiting_input",
+  "waiting_for_child",
   "completed",
   "failed",
   "cancelled",
@@ -215,6 +220,40 @@ const reasoningDelta = z.strictObject({
   text: z.string(),
 });
 
+// -- suspension lifecycle (lifecycle channel) ---------------------------------
+//
+// Durable suspension: the run released its task and will resume later. `suspended`/`resumed`
+// bracket a suspension; `human_input_requested`/`human_input_resolved` track a human-in-the-loop
+// gate so a viewer can show "input needed" + who answered.
+const suspendedEvent = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("suspended"),
+  /** Why the run suspended. */
+  reason: z.enum(["sleep", "human_input", "child"]),
+  /** For a timed suspension (long sleep / human-input timeout): when it is due to wake, ms since epoch. */
+  wakeAt: z.number().int().nonnegative().optional(),
+});
+const resumedEvent = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("resumed"),
+});
+const humanInputRequestedEvent = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("human_input_requested"),
+  /** The pending request's id. */
+  requestId: z.string().min(1),
+  /** The gate's stable key. */
+  key: z.string().min(1),
+  /** The question shown to the responder. */
+  prompt: z.string(),
+});
+const humanInputResolvedEvent = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("human_input_resolved"),
+  requestId: z.string().min(1),
+  key: z.string().min(1),
+});
+
 export const runEventSchema = z.discriminatedUnion("kind", [
   runStatusEvent,
   phaseEvent,
@@ -233,6 +272,10 @@ export const runEventSchema = z.discriminatedUnion("kind", [
   toolCallResult,
   toolCallError,
   reasoningDelta,
+  suspendedEvent,
+  resumedEvent,
+  humanInputRequestedEvent,
+  humanInputResolvedEvent,
 ]);
 
 export type RunEvent = z.infer<typeof runEventSchema>;
@@ -269,6 +312,10 @@ const KIND_TO_CHANNEL: Record<RunEventKind, Channel> = {
   tool_call_result: "agent",
   tool_call_error: "agent",
   reasoning_delta: "agent",
+  suspended: "lifecycle",
+  resumed: "lifecycle",
+  human_input_requested: "lifecycle",
+  human_input_resolved: "lifecycle",
 };
 
 /** The channel an event belongs to. */

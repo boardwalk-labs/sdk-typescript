@@ -1,7 +1,18 @@
 // SPDX-License-Identifier: MIT
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { agent, artifacts, output, parallel, phase, secrets, sleep, workflows } from "./index.js";
+import {
+  agent,
+  artifacts,
+  humanInput,
+  output,
+  parallel,
+  phase,
+  secrets,
+  sleep,
+  step,
+  workflows,
+} from "./index.js";
 import {
   installConfig,
   installHost,
@@ -134,6 +145,41 @@ describe("sleep / secrets / phase / artifacts", () => {
       name: "a.txt",
       url: "file:///a.txt",
     });
+  });
+});
+
+describe("humanInput", () => {
+  it("requires host support and surfaces a clear error without it", async () => {
+    installHost(makeHost());
+    await expect(humanInput({ prompt: "ok?", input: { kind: "text" } })).rejects.toThrow(
+      /not supported/,
+    );
+  });
+
+  it("delegates the opts and resolves the validated result", async () => {
+    const humanInputFn = vi.fn().mockResolvedValue({ value: "Approve", isOther: false });
+    installHost(makeHost({ humanInput: humanInputFn }));
+    const opts = {
+      prompt: "Approve?",
+      input: { kind: "choice", options: ["Approve", "Reject"] },
+    } as const;
+    await expect(humanInput(opts)).resolves.toEqual({ value: "Approve", isOther: false });
+    expect(humanInputFn).toHaveBeenCalledWith(opts);
+  });
+});
+
+describe("step.run", () => {
+  it("requires host support and surfaces a clear error without it", async () => {
+    installHost(makeHost());
+    await expect(step.run("fetch", () => 1)).rejects.toThrow(/not supported/);
+  });
+
+  it("delegates name + fn to the host and returns the memoized value", async () => {
+    const stepFn = vi.fn().mockResolvedValue({ cached: true });
+    installHost(makeHost({ step: stepFn }));
+    const fn = (): Promise<{ cached: boolean }> => Promise.resolve({ cached: true });
+    await expect(step.run("fetch", fn)).resolves.toEqual({ cached: true });
+    expect(stepFn).toHaveBeenCalledWith("fetch", fn);
   });
 });
 

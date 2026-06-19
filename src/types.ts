@@ -152,6 +152,12 @@ export interface AgentOptions {
    * directories or deliberately share one.
    */
   memory?: string;
+  /**
+   * Give this leaf the `human_input` tool, letting the model pause the run mid-loop to ask a
+   * person (the leaf's transcript is checkpointed; the run suspends and resumes with the answer).
+   * Off by default — a leaf cannot block on a human unless you opt in. Per-agent.
+   */
+  humanInput?: boolean;
 }
 
 /** Options for a {@link import("./index.js").workflows}.call durable child run. */
@@ -208,6 +214,106 @@ export interface PhaseOptions {
    * This is only an observability key; it is not a checkpoint/resume identifier.
    */
   id?: string;
+}
+
+/**
+ * The form a {@link HumanInputOptions} gate presents to the responder — a discriminated union on
+ * `kind`. It is the single source of truth for both UI rendering and server-side validation, so
+ * common gates need no JSON Schema.
+ */
+export type HumanInputSpec = HumanInputTextSpec | HumanInputChoiceSpec | HumanInputMultiSelectSpec;
+
+/** Free-text input. Resolves to {@link HumanTextResult}. */
+export interface HumanInputTextSpec {
+  kind: "text";
+  /** Render a multi-line textarea instead of a single line. */
+  multiline?: boolean;
+  /** Placeholder shown in the empty field. */
+  placeholder?: string;
+  /** Reject an empty submission. Defaults to false. */
+  required?: boolean;
+}
+
+/**
+ * Single-select from `options`, with a trailing open-text entry unless `allowOther` is false.
+ * Resolves to {@link HumanChoiceResult}.
+ */
+export interface HumanInputChoiceSpec {
+  kind: "choice";
+  /** The selectable options, in display order. */
+  options: readonly string[];
+  /** Include a trailing "Other..." entry that reveals a text field. Defaults to true. */
+  allowOther?: boolean;
+  /** Label for the open-text entry. Defaults to "Other...". */
+  otherLabel?: string;
+}
+
+/**
+ * Multi-select from `options`, with a trailing open-text entry unless `allowOther` is false.
+ * Resolves to {@link HumanMultiSelectResult}.
+ */
+export interface HumanInputMultiSelectSpec {
+  kind: "multiselect";
+  /** The selectable options, in display order. */
+  options: readonly string[];
+  /** Include a trailing "Other..." entry that reveals a text field. Defaults to true. */
+  allowOther?: boolean;
+  /** Label for the open-text entry. Defaults to "Other...". */
+  otherLabel?: string;
+  /** Minimum number of selections required. */
+  min?: number;
+  /** Maximum number of selections allowed. */
+  max?: number;
+}
+
+/** Result of a `text` gate. */
+export interface HumanTextResult {
+  value: string;
+}
+/** Result of a `choice` gate. `isOther` is true when `value` is the responder's typed text. */
+export interface HumanChoiceResult {
+  value: string;
+  isOther: boolean;
+}
+/** Result of a `multiselect` gate. `other` is the typed freeform value when the open entry was used. */
+export interface HumanMultiSelectResult {
+  values: string[];
+  other?: string;
+}
+/** Any human-input result (one of the per-kind results above). */
+export type HumanInputResult = HumanTextResult | HumanChoiceResult | HumanMultiSelectResult;
+
+/**
+ * Options for {@link import("./index.js").humanInput} — pause the run for a person to answer, then
+ * resume with their validated response. The run SUSPENDS while it waits (the task is released and
+ * does not bill idle time) and resumes when a responder submits via the control plane (web / MCP /
+ * REST / CLI).
+ */
+export interface HumanInputOptions {
+  /**
+   * Optional stable key for this gate (defaults to the seam's sequence position). Shown in the UI
+   * and in determinism errors; set one when you want a human-readable, edit-stable identifier.
+   */
+  key?: string;
+  /** The question shown to the responder. */
+  prompt: string;
+  /** The form: free text, single choice, or multi-select (see {@link HumanInputSpec}). */
+  input: HumanInputSpec;
+  /**
+   * Who may respond, as RBAC scopes (`"role:admin"`, `"user:<id>"`). Defaults to any org member
+   * with the `run:respond` permission.
+   */
+  assignees?: readonly string[];
+  /**
+   * Optional cap on how long to wait, as `"<n> <unit>"` (e.g. `"48h"`). Provisions a one-shot wake;
+   * on expiry the gate resolves per {@link onTimeout}.
+   */
+  timeout?: string;
+  /**
+   * What to do if `timeout` elapses with no response: `"fail"` fails the run; `{ value }` resolves
+   * the gate with a default value. Defaults to `"fail"`.
+   */
+  onTimeout?: "fail" | { value: HumanInputResult };
 }
 
 /** Body for {@link import("./index.js").artifacts}.write — UTF-8 text or raw bytes. */

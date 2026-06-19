@@ -91,6 +91,17 @@ describe("schema round-trips", () => {
       error: { code: "TOOL_FAILED", message: "boom" },
     },
     { ...ENVELOPE, kind: "reasoning_delta", text: "thinking…" },
+    { ...ENVELOPE, kind: "suspended", reason: "human_input" },
+    { ...ENVELOPE, kind: "suspended", reason: "sleep", wakeAt: 1_770_000_100_000 },
+    { ...ENVELOPE, kind: "resumed" },
+    {
+      ...ENVELOPE,
+      kind: "human_input_requested",
+      requestId: "hir_1",
+      key: "approve-send",
+      prompt: "Approve sending this email?",
+    },
+    { ...ENVELOPE, kind: "human_input_resolved", requestId: "hir_1", key: "approve-send" },
   ];
 
   it.each(samples.map((s) => [s.kind, s] as const))("round-trips %s with toEqual", (_kind, ev) => {
