@@ -9,8 +9,8 @@ patch releases.
 ### Added
 
 - `workflow_run` trigger — react to another workflow's run finishing (GitHub-Actions `on:
-  workflow_run`). A workflow declares `triggers: [{ kind: "workflow_run", workflows: ["ci"],
-  conclusions: ["success"] }]` to run when any named upstream workflow (slug, same org) completes,
+workflow_run`). A workflow declares `triggers: [{ kind: "workflow_run", workflows: ["ci"],
+conclusions: ["success"] }]` to run when any named upstream workflow (slug, same org) completes,
   optionally filtered by conclusion (`success` / `failure` / `cancelled`); the run-event payload
   becomes the triggered run's input. Server engines only.
 
