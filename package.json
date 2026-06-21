@@ -1,6 +1,6 @@
 {
   "name": "@boardwalk-labs/workflow",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Author Boardwalk workflows in TypeScript: agent(), sleep(), workflows.call(), secrets, the manifest schema, and the run-event wire format.",
   "license": "MIT",
   "repository": {

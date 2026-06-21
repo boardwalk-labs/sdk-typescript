@@ -4,6 +4,16 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.1.14
+
+### Added
+
+- `workflow_run` trigger — react to another workflow's run finishing (GitHub-Actions `on:
+  workflow_run`). A workflow declares `triggers: [{ kind: "workflow_run", workflows: ["ci"],
+  conclusions: ["success"] }]` to run when any named upstream workflow (slug, same org) completes,
+  optionally filtered by conclusion (`success` / `failure` / `cancelled`); the run-event payload
+  becomes the triggered run's input. Server engines only.
+
 ## 0.1.13
 
 ### Added
