@@ -70,12 +70,18 @@ export type McpServerRef =
       command: string;
       args?: readonly string[];
       env?: Record<string, string>;
+      /** Tool names to hide from the agent (they stay callable by the trusted program). Use to keep
+       *  a server's sharp tools — e.g. arbitrary code execution — out of the model's reach. */
+      excludeTools?: readonly string[];
     }
   | {
       name: string;
       transport: "http";
       url: string;
       headers?: Record<string, string>;
+      /** Tool names to hide from the agent (they stay callable by the trusted program). Use to keep
+       *  a server's sharp tools — e.g. arbitrary code execution — out of the model's reach. */
+      excludeTools?: readonly string[];
     };
 
 // ============================================================================
