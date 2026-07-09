@@ -15,11 +15,16 @@ export {
   requireHost,
 } from "./host.js";
 export type { WorkflowHost, RuntimeContext } from "./host.js";
+export type { McpServerRef } from "./meta.js";
 export type {
   AgentOptions,
   ToolDef,
   ArtifactBody,
   ArtifactRef,
+  BrowserSession,
+  BrowserSessionOptions,
+  ConsoleEntry,
+  NetworkEntry,
   CallOptions,
   HumanInputOptions,
   HumanInputSpec,
