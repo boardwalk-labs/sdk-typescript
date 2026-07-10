@@ -42,6 +42,13 @@ describe("schema round-trips", () => {
     { ...ENVELOPE, kind: "phase", name: "plan", id: "p1" },
     { ...ENVELOPE, kind: "output", value: { answer: 42 } },
     { ...ENVELOPE, kind: "program_output", stream: "stdout", text: "hello\n" },
+    {
+      ...ENVELOPE,
+      kind: "egress_denied",
+      host: "api.example.com",
+      method: "CONNECT",
+      reason: "not in this run's egress allowlist",
+    },
     { ...ENVELOPE, kind: "turn_started", agentId: "agt_1" },
     { ...ENVELOPE, kind: "turn_started", agentId: "agt_2", agentName: "reviewer" },
     {

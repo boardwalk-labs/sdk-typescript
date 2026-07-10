@@ -123,6 +123,21 @@ const programOutputEvent = z.strictObject({
   text: z.string(),
 });
 
+// A host-observed egress denial: the run tried to reach `host` and the platform egress proxy blocked
+// it (a `custom` allowlist miss, or an always-on guard like the private-range/metadata deny). Emitted
+// by the runtime substrate, NOT the workflow program — it surfaces WHY a fetch failed so an author
+// isn't left staring at an opaque network error. Diagnostic, non-terminal.
+const egressDeniedEvent = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("egress_denied"),
+  /** The blocked destination host (no port). */
+  host: z.string().min(1),
+  /** The HTTP method Squid logged (GET, CONNECT, …), if known. Display-only. */
+  method: z.string().optional(),
+  /** Human-readable reason, e.g. "not in this run's egress allowlist". */
+  reason: z.string().min(1),
+});
+
 // -- agent channel ----------------------------------------------------------------
 //
 // `turn_started`/`turn_ended` bracket the turns of ONE `agent()` leaf and carry that leaf's
@@ -259,6 +274,7 @@ export const runEventSchema = z.discriminatedUnion("kind", [
   phaseEvent,
   outputEvent,
   programOutputEvent,
+  egressDeniedEvent,
   turnStarted,
   turnEnded,
   textStart,
@@ -299,6 +315,7 @@ const KIND_TO_CHANNEL: Record<RunEventKind, Channel> = {
   phase: "phase",
   output: "output",
   program_output: "log",
+  egress_denied: "log",
   turn_started: "agent",
   turn_ended: "agent",
   text_start: "agent",
