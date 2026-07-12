@@ -97,11 +97,7 @@ export type Concurrency =
 // Runner selection (meaningful on hosted Boardwalk; local engines warn and ignore)
 // ============================================================================
 
-export type HostedRunsOn =
-  | "boardwalk/linux"
-  | "boardwalk/linux-node"
-  | "boardwalk/linux-python"
-  | "boardwalk/linux-large";
+export type HostedRunsOn = "boardwalk/linux" | "boardwalk/linux-node" | "boardwalk/linux-python";
 
 export type HostedRunnerSize = "small" | "medium" | "large" | "xlarge";
 

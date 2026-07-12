@@ -179,7 +179,6 @@ const hostedRunsOnLabel = z.enum([
   "boardwalk/linux",
   "boardwalk/linux-node",
   "boardwalk/linux-python",
-  "boardwalk/linux-large",
 ]);
 
 const runsOnSchema = z.union([
