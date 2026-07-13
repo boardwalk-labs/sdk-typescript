@@ -185,6 +185,9 @@ describe("runtime", () => {
     installHost(makeHost());
     expect(() => runtime.runId).toThrow(/runtime context is not available/);
     await expect(runtime.apiToken()).rejects.toThrow(/runtime context is not available/);
+    await expect(runtime.idToken("sts.amazonaws.com")).rejects.toThrow(
+      /runtime context is not available/,
+    );
   });
 
   it("exposes ids synchronously and resolves apiToken through the host", async () => {
@@ -197,6 +200,7 @@ describe("runtime", () => {
           orgId: "org_1",
           apiUrl: "https://api.boardwalk.sh",
           apiToken,
+          idToken: vi.fn().mockResolvedValue("oidc-jwt"),
         },
       }),
     );
@@ -206,6 +210,26 @@ describe("runtime", () => {
     expect(runtime.apiUrl).toBe("https://api.boardwalk.sh");
     await expect(runtime.apiToken()).resolves.toBe("run-api-token");
     expect(apiToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves idToken through the host, forwarding the audience", async () => {
+    const idToken = vi.fn().mockResolvedValue("oidc-jwt");
+    installHost(
+      makeHost({
+        runtime: {
+          runId: "run_1",
+          workflowId: "wf_1",
+          orgId: "org_1",
+          apiUrl: "https://api.boardwalk.sh",
+          apiToken: vi.fn().mockResolvedValue("run-api-token"),
+          idToken,
+        },
+      }),
+    );
+    await expect(runtime.idToken("sts.amazonaws.com")).resolves.toBe("oidc-jwt");
+    expect(idToken).toHaveBeenCalledWith("sts.amazonaws.com");
+    await expect(runtime.idToken("  ")).rejects.toThrow(/non-empty audience/);
+    expect(idToken).toHaveBeenCalledTimes(1);
   });
 });
 

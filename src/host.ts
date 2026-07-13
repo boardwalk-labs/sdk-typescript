@@ -48,6 +48,16 @@ export interface RuntimeContext {
    * explicitly. It is redacted from all LLM context, so the agent leaf never sees it.
    */
   apiToken(): Promise<string>;
+  /**
+   * Mint a short-lived OIDC id-token (JWT, ~15 min) asserting this run's identity for the given
+   * `audience`, to exchange with an external cloud's federation endpoint (AWS
+   * `AssumeRoleWithWebIdentity`, GCP workload identity, Azure federated credentials). Claims
+   * include `sub` (`org:<org>:workflow:<workflow>:run:<run>`), `org_id`, `workflow_id`,
+   * `workflow_version_id`, `run_id`, `trigger_kind`, and `runs_on` — pin trust policies on the
+   * stable ones (`sub`, `org_id`, `workflow_id`). Requires `permissions.id_token: "write"` in the
+   * workflow's meta; minted on demand per call (never ambient) and redacted from all LLM context.
+   */
+  idToken(audience: string): Promise<string>;
 }
 
 /** The engine contract a host supplies. The author-facing hooks delegate to this. */

@@ -247,6 +247,24 @@ export const runtime = {
   async apiToken(): Promise<string> {
     return await requireRuntime().apiToken();
   },
+  /**
+   * Mint a short-lived OIDC id-token asserting this run's identity for `audience`, to exchange
+   * with an external cloud's federation endpoint — keyless AWS/GCP/Azure access instead of
+   * long-lived keys in secrets. Requires `permissions.id_token: "write"` in the workflow's meta,
+   * plus a trust relationship configured in the target cloud (e.g. an AWS IAM OIDC identity
+   * provider for the Boardwalk issuer and a role trust policy pinning `sub` or `org_id`).
+   *
+   *   const jwt = await runtime.idToken("sts.amazonaws.com");
+   *   const sts = new STSClient({ region, signer: noSigner }); // AssumeRoleWithWebIdentity is unsigned
+   *   const creds = await sts.send(new AssumeRoleWithWebIdentityCommand({
+   *     RoleArn: role, RoleSessionName: runtime.runId, WebIdentityToken: jwt }));
+   */
+  async idToken(audience: string): Promise<string> {
+    if (audience.trim() === "") {
+      throw new Error('runtime.idToken requires a non-empty audience (e.g. "sts.amazonaws.com")');
+    }
+    return await requireRuntime().idToken(audience);
+  },
 } as const;
 
 /** Computer use — open in-VM browser/desktop sessions the program owns and hands to agent leaves. */

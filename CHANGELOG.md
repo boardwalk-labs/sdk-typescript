@@ -4,6 +4,18 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.1.28
+
+### Added
+
+- **`runtime.idToken(audience)`.** Mint a short-lived OIDC id-token (JWT) asserting the run's
+  identity for the given audience, to exchange with an external cloud's federation endpoint —
+  AWS `AssumeRoleWithWebIdentity`, GCP workload identity, Azure federated credentials — instead
+  of storing long-lived cloud keys in secrets. Requires `permissions.id_token: "write"` in the
+  workflow's meta (schema already present). Backed by the new required `idToken` method on
+  `RuntimeContext` (engine seam); engines that supply no runtime context are unaffected — every
+  `runtime.*` accessor already throws a clear error there.
+
 ## 0.1.27
 
 ### Removed

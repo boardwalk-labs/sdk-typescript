@@ -45,6 +45,16 @@ interface CallOptions {
 function sleep(arg: number | { durationMs: number } | { until: string | Date }): Promise<void>;
 
 const secrets: { get(name: string): Promise<string> }; // name must appear in permissions.secrets
+
+const runtime: {
+  runId: string; // this run's identity, synchronous
+  workflowId: string;
+  orgId: string;
+  apiUrl: string; // public API base origin
+  apiToken(): Promise<string>; // short-lived bearer scoped to this run's manifest permissions, fetched on demand
+  idToken(audience: string): Promise<string>; // short-lived OIDC id-token asserting the run's identity, for
+  // external cloud federation (AWS AssumeRoleWithWebIdentity / GCP / Azure); requires permissions.id_token: "write".
+}; // engines without a runtime context make every accessor throw a clear error (e.g. local dev)
 const artifacts: {
   write(
     name: string,
@@ -120,6 +130,7 @@ The SDK's primitives delegate to a `WorkflowHost` installed by the engine before
 
 ```ts
 interface WorkflowHost {
+  runtime?: RuntimeContext; // run identity + apiToken()/idToken(audience); absent ⇒ runtime.* accessors throw
   agent(prompt: string, opts: AgentOptions | undefined): Promise<unknown>;
   callWorkflow(slug: string, input: unknown, opts: CallOptions | undefined): Promise<unknown>;
   sleep(arg: SleepArg): Promise<void>;
