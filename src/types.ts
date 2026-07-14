@@ -130,6 +130,21 @@ export interface AgentOptions {
    */
   builtins?: "all" | "read-only" | "none" | readonly string[];
   /**
+   * The workspace-relative directory this leaf works FROM. Re-roots the leaf's view of the
+   * workspace: the built-in file tools (`read`/`write`/`edit`/`ls`/`grep`/`glob`/`apply_patch`)
+   * resolve and confine their paths under this directory, `bash` starts there, the ambient
+   * workspace orientation describes it, and project context (`AGENTS.md`) is discovered from it.
+   * Useful when one run drives several agents in different checkouts (e.g. one cloned repo each):
+   * each agent sees clean repo-relative paths instead of guessing the checkout prefix.
+   *
+   * Must name an EXISTING directory inside the workspace — the call fails loudly otherwise (create
+   * it in program code first). {@link memory} stays workspace-ROOT-relative (a memory dir is a
+   * stable cross-run identity, not a working location). A `subagent` spawned by this leaf inherits
+   * the same `cwd`. This is scoping/ergonomics, not a security boundary — `bash` may still `cd`
+   * elsewhere; the run's sandbox is the isolation boundary. Defaults to the workspace root.
+   */
+  cwd?: string;
+  /**
    * MCP servers this leaf connects to, defined inline ({@link McpServerRef}). Per-agent — no
    * meta declaration; the program supplies credentials directly (it is the trusted layer).
    * Defaults to none.

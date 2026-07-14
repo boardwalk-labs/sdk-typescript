@@ -4,6 +4,18 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.1.29
+
+### Added
+
+- **`AgentOptions.cwd`.** The workspace-relative directory an `agent()` leaf works from. Re-roots
+  the leaf's workspace view — built-in file tools resolve and confine paths under it, `bash` starts
+  there, the ambient workspace orientation describes it, and `AGENTS.md` project context is
+  discovered from it — so a run driving several agents in different checkouts gives each one clean
+  repo-relative paths. Must name an existing directory inside the workspace (fails loudly
+  otherwise); `memory` stays workspace-root-relative; a `subagent` inherits the parent's `cwd`.
+  Scoping, not a security boundary — the run's sandbox remains the isolation boundary.
+
 ## 0.1.28
 
 ### Added

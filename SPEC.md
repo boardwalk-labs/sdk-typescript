@@ -29,6 +29,8 @@ interface AgentOptions {
   schema?: JsonSchema; // Validates parsed JSON output; run fails on mismatch.
   tools?: readonly ToolDef[]; // PER-AGENT: inline program-defined tools, added ON TOP of the default-on built-ins.
   builtins?: "all" | "read-only" | "none" | readonly string[]; // Scopes the engine's default-on built-in tools. Default "all".
+  cwd?: string; // PER-AGENT: the existing workspace-relative dir the leaf works from — file tools, bash,
+  // orientation, and AGENTS.md discovery re-root there (memory stays root-relative; subagents inherit it).
   mcp?: readonly McpServerRef[]; // PER-AGENT: inline server definitions (stdio command or http url).
   skills?: readonly string[]; // PER-AGENT: skills/<name>.md deployed alongside the program.
   memory?: string; // PER-AGENT: workspace-relative dir, auto-persisted across runs by the engine.
