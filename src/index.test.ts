@@ -6,16 +6,12 @@ import {
   artifacts,
   computer,
   humanInput,
-  now,
   output,
   parallel,
   phase,
-  random,
   runtime,
   secrets,
   sleep,
-  step,
-  uuid,
   workflows,
 } from "./index.js";
 import type { BrowserSession } from "./index.js";
@@ -250,55 +246,6 @@ describe("humanInput", () => {
     } as const;
     await expect(humanInput(opts)).resolves.toEqual({ value: "Approve", isOther: false });
     expect(humanInputFn).toHaveBeenCalledWith(opts);
-  });
-});
-
-describe("step.run", () => {
-  it("requires host support and surfaces a clear error without it", async () => {
-    installHost(makeHost());
-    await expect(step.run("fetch", () => 1)).rejects.toThrow(/not supported/);
-  });
-
-  it("delegates name + fn to the host and returns the memoized value", async () => {
-    const stepFn = vi.fn().mockResolvedValue({ cached: true });
-    installHost(makeHost({ step: stepFn }));
-    const fn = (): Promise<{ cached: boolean }> => Promise.resolve({ cached: true });
-    await expect(step.run("fetch", fn)).resolves.toEqual({ cached: true });
-    expect(stepFn).toHaveBeenCalledWith("fetch", fn);
-  });
-});
-
-describe("durable now / random / uuid", () => {
-  it("require host step support and surface a clear error without it", async () => {
-    installHost(makeHost());
-    await expect(now()).rejects.toThrow(/not supported/);
-    await expect(random()).rejects.toThrow(/not supported/);
-    await expect(uuid()).rejects.toThrow(/not supported/);
-  });
-
-  it("capture through step.run under stable labels and return real values", async () => {
-    // The host echoes the callback's value — models a FIRST execution that records the seam.
-    const stepFn = vi.fn((_name: string, fn: () => unknown) => Promise.resolve(fn()));
-    installHost(makeHost({ step: stepFn }));
-
-    const t = await now();
-    const r = await random();
-    const id = await uuid();
-
-    expect(typeof t).toBe("number");
-    expect(typeof r).toBe("number");
-    expect(r).toBeGreaterThanOrEqual(0);
-    expect(r).toBeLessThan(1);
-    expect(id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(stepFn.mock.calls.map((c) => c[0])).toEqual(["now", "random", "uuid"]);
-  });
-
-  it("return the journaled value verbatim on replay (callback not re-run)", async () => {
-    // On a resume the host returns the recorded value WITHOUT invoking the callback.
-    const stepFn = vi.fn().mockResolvedValue(1_700_000_000_000);
-    installHost(makeHost({ step: stepFn }));
-    await expect(now()).resolves.toBe(1_700_000_000_000);
-    expect(stepFn).toHaveBeenCalledWith("now", expect.any(Function));
   });
 });
 

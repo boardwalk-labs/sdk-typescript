@@ -13,7 +13,6 @@
 // These hooks are facades over the installed host (see host.ts). Author programs never
 // install a host — the engine running the program does.
 
-import { randomUUID } from "node:crypto";
 import { requireHost, recordOutput } from "./host.js";
 import type { RuntimeContext } from "./host.js";
 import type {
@@ -118,19 +117,22 @@ export const workflows = {
 } as const;
 
 /**
- * Pause the run for a duration or until a timestamp. The engine HOLDS the task for short waits
- * (locals survive) and SUSPENDS it for long ones (the task is released and re-acquired on wake),
- * by an engine threshold; either way this resolves once the time has elapsed.
+ * Pause the run for a duration or until a timestamp. On hosted runners the engine HOLDS the task
+ * for short waits and SUSPENDS it for long ones (the machine is snapshotted and released, then
+ * restored on wake — locals survive either way, and suspended idle time is not billed). Engines
+ * without a snapshot substrate (local dev, self-hosted runners) hold the process for the whole
+ * wait. Either way this resolves once the time has elapsed.
  */
 export async function sleep(arg: SleepArg): Promise<void> {
   await requireHost().sleep(arg);
 }
 
 /**
- * Pause the run for a human to answer, then resume with their validated response. The run SUSPENDS
- * while it waits — the task is released and re-acquired when a person responds via the control
- * plane (web / MCP / REST / CLI), so idle wait time is not billed. The return type follows the
- * `input.kind`:
+ * Pause the run for a human to answer, then resume with their validated response. On hosted
+ * runners the run SUSPENDS while it waits — the machine is snapshotted and released, then restored
+ * when a person responds via the control plane (web / MCP / REST / CLI), so idle wait time is not
+ * billed. Engines without a snapshot substrate (local dev, self-hosted runners) hold the process
+ * until the answer arrives. The return type follows the `input.kind`:
  *  - `{ kind: "text" }` → `{ value: string }`
  *  - `{ kind: "choice", options }` → `{ value: string, isOther: boolean }`
  *  - `{ kind: "multiselect", options }` → `{ values: string[], other?: string }`
@@ -153,50 +155,6 @@ export async function humanInput(opts: HumanInputOptions): Promise<HumanInputRes
     throw new Error("humanInput is not supported by the installed engine");
   }
   return host.humanInput(opts);
-}
-
-/** Durable steps: run a side-effecting function once and memoize its result across resumes. */
-export const step = {
-  /**
-   * Run `fn` exactly once and memoize its (JSON-serializable) result under `name`. On a resume the
-   * cached value is returned WITHOUT re-running `fn` — the escape hatch for arbitrary I/O that must
-   * survive a suspend (everything else re-runs on replay unless it goes through a durable seam).
-   */
-  async run<T>(name: string, fn: () => Promise<T> | T): Promise<T> {
-    const host = requireHost();
-    if (host.step === undefined) {
-      throw new Error("step.run is not supported by the installed engine");
-    }
-    return (await host.step(name, fn)) as T;
-  },
-} as const;
-
-// Durable clock + randomness. A workflow program restarts from the top on a crash and replays from
-// the top on a resume (durable suspension), so a BARE `Date.now()` / `new Date()` / `Math.random()` /
-// `crypto.randomUUID()` re-runs and yields a DIFFERENT value each segment — silently corrupting any
-// result computed before a suspend and read after it. These capture the value ONCE through the
-// durable `step` seam and memoize it, so it survives a suspend/resume and a crash-restart unchanged.
-// Reach for them instead of the bare calls (the `/lint` determinism check flags the bare calls and
-// points here). Each is one journaled step, so it costs a broker round-trip — capture a value once
-// and reuse it rather than calling these in a hot loop.
-
-/**
- * Durable {@link Date.now}: epoch milliseconds captured once and memoized. For a `Date`, wrap it:
- * `new Date(await now())`. A value captured after a `sleep`/`humanInput` reflects the resume time, as
- * you'd expect; one captured before is preserved across the suspend (that is the whole point).
- */
-export async function now(): Promise<number> {
-  return step.run("now", () => Date.now());
-}
-
-/** Durable {@link Math.random}: a float in [0, 1) captured once and memoized. */
-export async function random(): Promise<number> {
-  return step.run("random", () => Math.random());
-}
-
-/** Durable {@link crypto.randomUUID}: a v4 UUID string captured once and memoized. */
-export async function uuid(): Promise<string> {
-  return step.run("uuid", () => randomUUID());
 }
 
 /** Granted secrets, resolved lazily and fail-closed against `permissions.secrets`. */

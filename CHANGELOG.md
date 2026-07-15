@@ -4,6 +4,25 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.2.0
+
+### Removed (breaking — the determinism tax is deleted)
+
+The snapshot substrate makes the whole VM the durable unit: a suspended run resumes with its
+exact heap, so nothing replays and no value needs to be journaled. The replay-era author
+surface is deleted outright, not deprecated:
+
+- **Durable `now()` / `random()` / `uuid()`.** Write plain `Date.now()` / `Math.random()` /
+  `crypto.randomUUID()` — a suspended run resumes with the same values because it resumes with
+  the same memory. (Post-snapshot CSPRNG uniqueness is the engine's job, not the author's.)
+- **`step` / `step.run(name, fn)`** and the `WorkflowHost.step` hook. Its only behavior was
+  journal memoization across resumes; with the heap durable it collapses to `await fn()`. The
+  crash model is restart-from-top: side effects re-run on a crash, so a memoization primitive
+  would promise a durability it can't deliver.
+- **The `/lint` subpath** (`lintDeterminism`, `DeterminismWarning`, `LintOptions`). With no
+  determinism contract to enforce there is nothing to lint; `boardwalk deploy` no longer blocks
+  on bare clock/random calls and `--allow-nondeterminism` is gone from the CLI.
+
 ## 0.1.29
 
 ### Added

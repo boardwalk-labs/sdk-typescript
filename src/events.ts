@@ -80,7 +80,7 @@ const runStatusValues = [
   "pending",
   "running",
   // Suspended (non-terminal, no worker, no lease, zero running compute): a long sleep, a
-  // human-input gate, or a long child-wait. The run resumes by re-dispatch + journal replay.
+  // human-input gate, or a long child-wait. The run resumes by restoring its snapshot.
   "sleeping",
   "awaiting_input",
   "waiting_for_child",

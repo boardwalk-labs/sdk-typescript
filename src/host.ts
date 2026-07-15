@@ -117,12 +117,6 @@ export interface WorkflowHost {
    */
   humanInput?(opts: HumanInputOptions): Promise<HumanInputResult>;
   /**
-   * Run `fn` once and memoize its result under `name`; on replay return the cached value WITHOUT
-   * re-running `fn`. Optional — an engine that doesn't support it makes the `step.run` hook throw a
-   * clear error.
-   */
-  step?(name: string, fn: () => unknown): Promise<unknown>;
-  /**
    * Open a live, in-VM browser session the program owns (the browser tier of computer use). Resolves
    * to a {@link BrowserSession} handle. Optional — an engine without a desktop/browser backend makes
    * the `computer.openBrowser` hook throw a clear error.
