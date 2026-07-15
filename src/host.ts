@@ -44,11 +44,10 @@ export interface RuntimeContext {
   apiUrl: string;
   /**
    * Absolute path to the run's WORKSPACE root — the same directory `agent({ cwd })` is resolved
-   * against and the built-in file tools confine to. This is NOT the program's `process.cwd()`: on a
-   * hosted run the program executes from its own bundle directory, so `process.cwd()` points
-   * elsewhere and building paths from it escapes the workspace. Optional — an engine that doesn't
-   * supply it leaves the `runtime.workspaceDir` accessor to fall back to
-   * `WORKSPACE_ROOT`/`process.cwd()`.
+   * against and the built-in file tools confine to. It is also the program's working directory and
+   * `HOME` on every runner (docs/WORKSPACE_PERSISTENCE.md I1), so it agrees with `process.cwd()`.
+   * Optional — an engine that doesn't supply it leaves the `runtime.workspaceDir` accessor to fall
+   * back to `WORKSPACE_ROOT`/`process.cwd()`.
    */
   workspaceDir?: string;
   /**

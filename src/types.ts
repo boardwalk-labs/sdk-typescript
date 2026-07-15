@@ -138,10 +138,10 @@ export interface AgentOptions {
    * each agent sees clean repo-relative paths instead of guessing the checkout prefix.
    *
    * Must name an EXISTING directory inside the workspace — the call fails loudly otherwise (create
-   * it in program code first). Resolved against the run's WORKSPACE root, which is NOT the program's
-   * `process.cwd()`: on a hosted run the program executes from a separate bundle directory, so build
-   * the directory with `runtime.workspaceDir` (e.g. `mkdir ${runtime.workspaceDir}/repo`, then
-   * `agent(prompt, { cwd: "repo" })`), never `process.cwd()`. {@link memory} stays
+   * it in program code first). Resolved against the run's WORKSPACE root, which is also the
+   * program's own working directory on every runner — so `mkdirSync("repo")` in program code and
+   * `mkdirSync(`${runtime.workspaceDir}/repo`)` create the same directory, and either is a valid
+   * setup for `agent(prompt, { cwd: "repo" })`. {@link memory} stays
    * workspace-ROOT-relative (a memory dir is a stable cross-run identity, not a working location). A
    * `subagent` spawned by this leaf inherits the same `cwd`. This is scoping/ergonomics, not a
    * security boundary — `bash` may still `cd` elsewhere; the run's sandbox is the isolation

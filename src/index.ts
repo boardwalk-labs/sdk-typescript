@@ -203,12 +203,19 @@ export const runtime = {
   },
   /**
    * Absolute path to the run's WORKSPACE root — where `agent({ cwd })` resolves and the built-in
-   * file tools work. Use this to build filesystem paths in program code (clone targets, output
-   * dirs) instead of `process.cwd()`: on a hosted run the program executes from a separate bundle
-   * directory, so `${process.cwd()}/repo` escapes the workspace, but `${runtime.workspaceDir}/repo`
-   * is exactly what a later `agent({ cwd: "repo" })` sees. Falls back to `process.env.WORKSPACE_ROOT`
-   * then `process.cwd()` when the engine doesn't supply it (older engines, some local-dev paths), so
-   * it never throws.
+   * file tools work. It is also the program's own working directory and `HOME`, on every runner, so
+   * a relative path in program code (`./repo`) and `${runtime.workspaceDir}/repo` name the same
+   * place. Prefer this accessor when an ABSOLUTE path is what you need (passing a path to a tool,
+   * logging it); reach for it over `process.cwd()` because it states the intent.
+   *
+   * (This used to say `process.cwd()` pointed at the bundle directory and would "escape the
+   * workspace". That was true of the hosted runners as shipped, and it was a BUG, not a contract —
+   * cwd was `/` on the microVM fleet and `/app` on Fargate, so a program's relative write silently
+   * landed outside the tree `workspace.persist` archives and was thrown away with the VM. The
+   * runner now chdirs to the workspace before author code runs; see WORKSPACE_PERSISTENCE.md I1.)
+   *
+   * Falls back to `process.env.WORKSPACE_ROOT` then `process.cwd()` when the engine doesn't supply
+   * it, so it never throws.
    */
   get workspaceDir(): string {
     return requireHost().runtime?.workspaceDir ?? process.env.WORKSPACE_ROOT ?? process.cwd();
