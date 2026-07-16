@@ -269,6 +269,42 @@ const humanInputResolvedEvent = z.strictObject({
   key: z.string().min(1),
 });
 
+// An `agent()` leaf reduced its own context to stay inside the model's window.
+// `compaction_started`/`compaction_ended` bracket the work, which is NOT instant: a cheap pass
+// (drop stale duplicate file reads) runs first, and only if the conversation is still over budget
+// does the leaf spend a summarization MODEL CALL to replace the oldest middle with a digest. Both
+// the cost and the loss are worth showing — without these frames a viewer sees an unexplained
+// pause, a token charge with no turn behind it, and a transcript that quietly lost its middle.
+const compactionStartedEvent = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("compaction_started"),
+  ...agentIdentityShape,
+  /** Estimated conversation size that tripped the budget, in tokens. */
+  tokens: z.number().int().nonnegative(),
+  /** The budget it crossed — derived from `contextTokens` when the window is known. */
+  budget: z.number().int().nonnegative(),
+  /** The model's context window. Absent when the leaf has not learned one (BYO, dev, turn 1),
+   *  which is exactly when `budget` is the conservative fallback rather than window-derived. */
+  contextTokens: z.number().int().positive().optional(),
+});
+const compactionEndedEvent = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("compaction_ended"),
+  ...agentIdentityShape,
+  /** Estimated conversation size afterwards, in tokens. */
+  tokens: z.number().int().nonnegative(),
+  /** Tokens reclaimed (before − after). 0 when nothing was reclaimed. */
+  reclaimed: z.number().int().nonnegative(),
+  /**
+   * What actually happened:
+   *  - `deduped`    — stale duplicate file reads were enough; no model call, nothing summarized.
+   *  - `summarized` — the oldest middle was replaced by a model-written digest (costs a call).
+   *  - `none`       — nothing was done: no compressible middle, too little to reclaim, or the
+   *                   digest came back no smaller than what it would have replaced.
+   */
+  method: z.enum(["deduped", "summarized", "none"]),
+});
+
 export const runEventSchema = z.discriminatedUnion("kind", [
   runStatusEvent,
   phaseEvent,
@@ -292,6 +328,8 @@ export const runEventSchema = z.discriminatedUnion("kind", [
   resumedEvent,
   humanInputRequestedEvent,
   humanInputResolvedEvent,
+  compactionStartedEvent,
+  compactionEndedEvent,
 ]);
 
 export type RunEvent = z.infer<typeof runEventSchema>;
@@ -333,6 +371,9 @@ const KIND_TO_CHANNEL: Record<RunEventKind, Channel> = {
   resumed: "lifecycle",
   human_input_requested: "lifecycle",
   human_input_resolved: "lifecycle",
+  // Leaf-internal, like the turn/text/tool frames it sits between.
+  compaction_started: "agent",
+  compaction_ended: "agent",
 };
 
 /** The channel an event belongs to. */

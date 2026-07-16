@@ -109,6 +109,22 @@ describe("schema round-trips", () => {
       prompt: "Approve sending this email?",
     },
     { ...ENVELOPE, kind: "human_input_resolved", requestId: "hir_1", key: "approve-send" },
+    {
+      ...ENVELOPE,
+      kind: "compaction_started",
+      agentId: "a1",
+      tokens: 940_000,
+      budget: 936_000,
+      contextTokens: 1_000_000,
+    },
+    {
+      ...ENVELOPE,
+      kind: "compaction_ended",
+      agentId: "a1",
+      tokens: 536_000,
+      reclaimed: 404_000,
+      method: "summarized",
+    },
   ];
 
   it.each(samples.map((s) => [s.kind, s] as const))("round-trips %s with toEqual", (_kind, ev) => {
@@ -128,6 +144,75 @@ describe("schema round-trips", () => {
     ).toThrow();
     // agentId is required on turn_started/turn_ended.
     expect(() => runEventSchema.parse({ ...ENVELOPE, kind: "turn_started" })).toThrow();
+  });
+});
+
+describe("compaction events", () => {
+  const IDENT = { agentId: "a1" };
+
+  it("round-trips a started frame with the window that sized the budget", () => {
+    const ev = {
+      ...ENVELOPE,
+      kind: "compaction_started",
+      ...IDENT,
+      tokens: 940_000,
+      budget: 936_000,
+      contextTokens: 1_000_000,
+    };
+    expect(runEventSchema.parse(ev)).toEqual(ev);
+  });
+
+  it("allows an absent window — the leaf may not have learned one (BYO, dev, turn 1)", () => {
+    const ev = {
+      ...ENVELOPE,
+      kind: "compaction_started",
+      ...IDENT,
+      tokens: 160_000,
+      budget: 150_000,
+    };
+    expect(runEventSchema.parse(ev)).toEqual(ev);
+  });
+
+  it("round-trips each ended method, including the ones that reclaim nothing", () => {
+    for (const [method, reclaimed] of [
+      ["summarized", 400_000],
+      ["deduped", 90_000],
+      ["none", 0], // bailed: nothing compressible, or the digest wasn't smaller
+    ] as const) {
+      const ev = {
+        ...ENVELOPE,
+        kind: "compaction_ended",
+        ...IDENT,
+        tokens: 536_000,
+        reclaimed,
+        method,
+      };
+      expect(runEventSchema.parse(ev)).toEqual(ev);
+    }
+  });
+
+  it("rejects an unknown method rather than passing it to a viewer", () => {
+    expect(() =>
+      runEventSchema.parse({
+        ...ENVELOPE,
+        kind: "compaction_ended",
+        ...IDENT,
+        tokens: 1,
+        reclaimed: 0,
+        method: "truncated",
+      }),
+    ).toThrow();
+  });
+
+  it("requires the agent identity — concurrent leaves compact independently", () => {
+    expect(() =>
+      runEventSchema.parse({ ...ENVELOPE, kind: "compaction_started", tokens: 1, budget: 1 }),
+    ).toThrow();
+  });
+
+  it("puts both frames on the agent channel, beside the turn frames they sit between", () => {
+    expect(channelOf({ kind: "compaction_started" })).toBe("agent");
+    expect(channelOf({ kind: "compaction_ended" })).toBe("agent");
   });
 });
 
