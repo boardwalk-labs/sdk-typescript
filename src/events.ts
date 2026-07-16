@@ -64,9 +64,24 @@ export const toolReturnSchema = z.strictObject({
 });
 export type ToolReturn = z.infer<typeof toolReturnSchema>;
 
+/**
+ * The error carried by `run_status` (failed), `turn_ended` (reason=error), and `tool_call_error`.
+ *
+ * `code` is machine-readable (`VALIDATION`, `PROVIDER_ERROR`, `ENOENT`, …), `message` says what went
+ * wrong, and `hint` — when present — is the one-line pointer at the FIX (which field to use, what to
+ * type). Consumers should render `hint` beside the message, never instead of it.
+ *
+ * NOTE for anyone adding a field here: this is `strictObject`, so an unknown key makes the WHOLE
+ * event fail to parse — a consumer using `safeParse` then drops the event entirely. That is exactly
+ * what happened when the control plane began sending `hint` before this schema knew about it: the
+ * CLI silently stopped showing the terminal `workflow failed` line. So a new wire field must land
+ * HERE and be published BEFORE any producer emits it.
+ */
 const eventErrorSchema = z.strictObject({
   code: z.string(),
   message: z.string(),
+  /** Optional one-line pointer at the fix. Absent on most errors. */
+  hint: z.string().optional(),
 });
 
 const jsonValueSchema: z.ZodType<unknown> = z.unknown();

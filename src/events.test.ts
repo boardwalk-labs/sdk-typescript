@@ -39,6 +39,16 @@ describe("schema round-trips", () => {
       status: "failed",
       error: { code: "BUDGET_EXCEEDED", message: "max_usd reached" },
     },
+    {
+      ...ENVELOPE,
+      kind: "run_status",
+      status: "failed",
+      error: {
+        code: "VALIDATION",
+        message: 'agent() got a string ("bash") in `tools`.',
+        hint: 'Built-in tools are on by default — write `builtins: ["bash"]`.',
+      },
+    },
     { ...ENVELOPE, kind: "phase", name: "plan", id: "p1" },
     { ...ENVELOPE, kind: "output", value: { answer: 42 } },
     { ...ENVELOPE, kind: "program_output", stream: "stdout", text: "hello\n" },
@@ -240,5 +250,44 @@ describe("channels", () => {
     expect(matchesChannels(agentEv, DEFAULT_CHANNELS)).toBe(false);
     expect(matchesChannels(agentEv, [...CHANNELS])).toBe(true);
     expect(matchesChannels(statusEv, ["output"])).toBe(false);
+  });
+});
+
+// The wire contract is STRICT: an unknown key fails the whole event, so a `safeParse` consumer drops
+// it entirely rather than ignoring the field. That is not hypothetical — the control plane shipped
+// `error.hint` before this schema knew the key, and the CLI silently stopped printing the terminal
+// `workflow failed` line for every hinted failure. These tests pin both halves of that lesson.
+describe("event error — `hint` is part of the wire contract", () => {
+  const failed = (error: Record<string, unknown>): unknown => ({
+    kind: "run_status",
+    status: "failed",
+    error,
+    runId: "r",
+    turnId: "r",
+    seq: 1,
+    t: 1,
+  });
+
+  it("accepts an error carrying a hint, and KEEPS the hint (a strip would lose the fix)", () => {
+    const parsed = runEventSchema.safeParse(
+      failed({ code: "VALIDATION", message: "bad tools", hint: 'write `builtins: ["bash"]`' }),
+    );
+    expect(parsed.success).toBe(true);
+    const ev = parsed.success ? parsed.data : null;
+    expect(ev?.kind === "run_status" ? ev.error?.hint : undefined).toBe(
+      'write `builtins: ["bash"]`',
+    );
+  });
+
+  it("still accepts an error with no hint (most failures have none)", () => {
+    expect(runEventSchema.safeParse(failed({ code: "E", message: "m" })).success).toBe(true);
+  });
+
+  it("still REJECTS a genuinely unknown key — strictness is deliberate", () => {
+    // The point of strictObject: a producer typo can't slip onto the wire unnoticed. The cost is
+    // that a new field must be published HERE before any producer emits it.
+    expect(
+      runEventSchema.safeParse(failed({ code: "E", message: "m", hnit: "typo" })).success,
+    ).toBe(false);
   });
 });
