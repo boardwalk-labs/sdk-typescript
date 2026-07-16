@@ -353,6 +353,78 @@ export type EventEnvelope = Pick<RunEvent, "runId" | "turnId" | "seq" | "t">;
 export type RunStatus = (typeof runStatusValues)[number];
 
 // ============================================================================
+// Consuming events (be strict in what you send, liberal in what you accept)
+// ============================================================================
+
+/**
+ * Parse an event RECEIVED from the control plane — use this instead of `runEventSchema.safeParse`
+ * in any consumer (CLI tail, viewer). Returns null for an event this build genuinely cannot use.
+ *
+ * WHY THIS EXISTS. `runEventSchema` is strict on purpose: the engine's supervisor validates
+ * UNTRUSTED child-emitted bodies against it, where an unknown key means a bug and must fail. But a
+ * consumer sits on the other side of a version skew — its schema is whatever was compiled into the
+ * binary a user installed months ago, while the producer is a control plane that deploys daily. A
+ * strict consumer therefore says "I refuse to understand any event a newer server sends", and since
+ * a failed parse yields null, the frame is DROPPED rather than degraded.
+ *
+ * That is not hypothetical. The control plane added `error.hint`; every CLI parsed the terminal
+ * `run_status` as `Unrecognized key: "hint"` → null → **`--logs` printed nothing for a failed run**.
+ * A run that failed looked like a run that never finished, over a field the client didn't need.
+ *
+ * So: tolerate ADDITIVE keys (at any depth — `hint` was nested inside `error`, which a shallow
+ * `.strip()` would have missed), and nothing else. A wrong type, a missing field, or an unknown
+ * event kind still returns null — those are not forward-compat, they are broken or unrenderable.
+ */
+export function parseRunEventLenient(value: unknown): RunEvent | null {
+  const first = runEventSchema.safeParse(value);
+  if (first.success) return first.data;
+  // Only additive keys are forgivable. Anything else (invalid_type, invalid_union for an unknown
+  // kind, a missing required field) is a real mismatch — fail, don't guess.
+  const unknownKeyIssues = first.error.issues.filter((i) => i.code === "unrecognized_keys");
+  if (unknownKeyIssues.length !== first.error.issues.length || unknownKeyIssues.length === 0) {
+    return null;
+  }
+  const pruned = withoutKeys(value, unknownKeyIssues);
+  if (pruned === null) return null;
+  const second = runEventSchema.safeParse(pruned);
+  return second.success ? second.data : null;
+}
+
+/** A run event is JSON on the wire, so clone by round-trip: no aliasing of the caller's object, and
+ *  nothing exotic (Date/Map/prototype) can survive to surprise the delete below. */
+function withoutKeys(
+  value: unknown,
+  issues: readonly { path: readonly PropertyKey[]; keys: readonly string[] }[],
+): unknown {
+  let clone: unknown;
+  try {
+    clone = JSON.parse(JSON.stringify(value));
+  } catch {
+    return null; // not JSON (cyclic/BigInt) — it was never a wire event
+  }
+  for (const issue of issues) {
+    const parent = at(clone, issue.path);
+    if (parent === null) continue;
+    for (const key of issue.keys) delete parent[key];
+  }
+  return clone;
+}
+
+/** Walk a path (`["error"]`) to the plain object holding the offending keys; null if it isn't one. */
+function at(root: unknown, path: readonly PropertyKey[]): Record<string, unknown> | null {
+  let node: unknown = root;
+  for (const segment of path) {
+    if (!isPlainRecord(node)) return null;
+    node = node[String(segment)];
+  }
+  return isPlainRecord(node) ? node : null;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// ============================================================================
 // Channels
 // ============================================================================
 

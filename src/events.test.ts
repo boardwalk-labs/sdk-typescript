@@ -7,6 +7,7 @@ import {
   DEFAULT_CHANNELS,
   makeCursor,
   matchesChannels,
+  parseRunEventLenient,
   runEventSchema,
   TURN_CURSOR_STRIDE,
   type RunEvent,
@@ -289,5 +290,74 @@ describe("event error — `hint` is part of the wire contract", () => {
     expect(
       runEventSchema.safeParse(failed({ code: "E", message: "m", hnit: "typo" })).success,
     ).toBe(false);
+  });
+});
+
+// A consumer's schema is whatever shipped in the binary the user installed; the producer is a
+// control plane that deploys daily. So a consumer must tolerate fields it doesn't know — the
+// alternative is what actually happened: the CLI dropped the terminal frame over `error.hint` and a
+// failed run printed nothing. It must NOT tolerate anything else.
+describe("parseRunEventLenient — additive fields only", () => {
+  const failed = (error: Record<string, unknown>): Record<string, unknown> => ({
+    ...ENVELOPE,
+    kind: "run_status",
+    status: "failed",
+    error,
+  });
+
+  it("accepts a NESTED unknown key and keeps the rest (the exact bug: hint inside error)", () => {
+    // A shallow `.strip()` on the event would NOT have caught this — the key is one level down.
+    const ev = parseRunEventLenient(failed({ code: "E", message: "boom", futureField: "x" }));
+    expect(ev?.kind).toBe("run_status");
+    expect(ev?.kind === "run_status" ? ev.error : null).toEqual({ code: "E", message: "boom" });
+  });
+
+  it("accepts an unknown TOP-LEVEL key", () => {
+    const ev = parseRunEventLenient({
+      ...ENVELOPE,
+      kind: "phase",
+      name: "plan",
+      id: "p1",
+      extra: 1,
+    });
+    expect(ev?.kind).toBe("phase");
+  });
+
+  it("accepts several unknown keys at once, at different depths", () => {
+    const ev = parseRunEventLenient({
+      ...failed({ code: "E", message: "boom", futureA: 1, futureB: 2 }),
+      futureTop: true,
+    });
+    expect(ev?.kind === "run_status" ? ev.error : null).toEqual({ code: "E", message: "boom" });
+  });
+
+  it("is a pure read — it never mutates the caller's object", () => {
+    const input = failed({ code: "E", message: "boom", futureField: "x" });
+    parseRunEventLenient(input);
+    expect((input.error as Record<string, unknown>).futureField).toBe("x");
+  });
+
+  it("passes a well-formed event straight through", () => {
+    const ev = parseRunEventLenient(failed({ code: "E", message: "boom" }));
+    expect(ev?.kind === "run_status" ? ev.error?.message : null).toBe("boom");
+  });
+
+  it("still REJECTS a wrong type — that is a real mismatch, not forward compat", () => {
+    expect(parseRunEventLenient({ ...ENVELOPE, kind: "run_status", status: 42 })).toBeNull();
+    expect(parseRunEventLenient(failed({ code: 1, message: "boom" }))).toBeNull();
+  });
+
+  it("still REJECTS a missing required field", () => {
+    expect(parseRunEventLenient({ ...ENVELOPE, kind: "turn_started" })).toBeNull();
+  });
+
+  it("still REJECTS an unknown event kind (a client can't render what it doesn't know)", () => {
+    expect(parseRunEventLenient({ ...ENVELOPE, kind: "not_a_kind_yet" })).toBeNull();
+  });
+
+  it("rejects non-events without throwing", () => {
+    for (const junk of [null, undefined, 42, "str", [], {}]) {
+      expect(parseRunEventLenient(junk)).toBeNull();
+    }
   });
 });

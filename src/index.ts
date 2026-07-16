@@ -381,6 +381,7 @@ export {
   type TokenUsage,
   type ToolReturn,
   runEventSchema,
+  parseRunEventLenient,
   CHANNELS,
   DEFAULT_CHANNELS,
   channelOf,
