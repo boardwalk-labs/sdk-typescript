@@ -41,6 +41,7 @@ import {
   type ToolDeclaration,
   type UsageSnapshot,
 } from "./protocol.js";
+import { reviveBySchema } from "./revive.js";
 import type { ShellOptions } from "./shell.js";
 import type {
   AgentOptions,
@@ -196,8 +197,11 @@ export class HostClient implements HostInterface {
    * `cancel` notification (it is never a wire field).
    */
   async bootstrap(): Promise<{ input: unknown; context: Context }> {
-    const { input, context } = await this.request("bootstrap", {});
-    return { input, context: this.buildContext(context) };
+    const { input, input_schema, context } = await this.request("bootstrap", {});
+    // The revival pass runs HERE, client-side: a revived Date/bigint/Set/Uint8Array is not
+    // JSON, so the host can only ever send the raw payload + the schema that guides revival.
+    const revived = input_schema === null ? input : reviveBySchema(input, input_schema);
+    return { input: revived, context: this.buildContext(context) };
   }
 
   /** The loader reports `run`'s return; the host validates + persists it. `void` ⇒ `null`. */

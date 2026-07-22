@@ -473,10 +473,20 @@ const sessionScoped = { sessionId: z.string().min(1) } as const;
  * never author API); everything else backs an author capability import.
  */
 export const clientToHostRequests = {
-  /** Loader-only: the loader's first call; it then invokes `run(input, context)`. */
+  /**
+   * Loader-only: the loader's first call; it then invokes `run(input, context)`. The wire
+   * carries the raw JSON input plus the stored `input_schema` (`null` for an untyped
+   * workflow) so the CLIENT applies the schema-guided revival pass — revival must happen in
+   * the program process, because a revived value (`Date`, `bigint`, `Set`, `Uint8Array`) is
+   * not JSON-serializable and could never cross the wire itself.
+   */
   bootstrap: {
     params: emptyParams,
-    result: z.strictObject({ input: jsonValueSchema, context: contextDataSchema }),
+    result: z.strictObject({
+      input: jsonValueSchema,
+      input_schema: jsonSchemaObject.nullable(),
+      context: contextDataSchema,
+    }),
   },
   /** Loader-only: `run`'s return value; the host validates + persists it. `void` ⇒ `null`. */
   report_return: {

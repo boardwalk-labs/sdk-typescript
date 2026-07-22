@@ -97,10 +97,20 @@ describe("loader-only methods", () => {
   };
 
   it("bootstrap round-trips { input, context } — context is DATA only (no signal field)", () => {
-    roundTrip(clientToHostRequests.bootstrap.result, { input: { pr: 7 }, context });
+    roundTrip(clientToHostRequests.bootstrap.result, {
+      input: { pr: 7 },
+      input_schema: null,
+      context,
+    });
+    roundTrip(clientToHostRequests.bootstrap.result, {
+      input: { at: "2026-07-22T00:00:00.000Z" },
+      input_schema: { type: "object", properties: { at: { type: "string" } } },
+      context,
+    });
     expect(
       clientToHostRequests.bootstrap.result.safeParse({
         input: null,
+        input_schema: null,
         context: { ...context, signal: {} },
       }).success,
     ).toBe(false);

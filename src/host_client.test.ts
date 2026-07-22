@@ -407,7 +407,11 @@ describe("tool_invoke (the callback lane)", () => {
 
 describe("bootstrap / report_return / cancel", () => {
   it("bootstrap returns the input and a live, frozen Context (signal synthesized locally)", async () => {
-    host.handlers["bootstrap"] = () => ({ input: { pr: 7 }, context: CONTEXT_DATA });
+    host.handlers["bootstrap"] = () => ({
+      input: { pr: 7 },
+      input_schema: null,
+      context: CONTEXT_DATA,
+    });
     const { input, context } = await client.bootstrap();
     expect(input).toEqual({ pr: 7 });
     expect(context.runId).toBe(CONTEXT_DATA.runId);
@@ -416,6 +420,26 @@ describe("bootstrap / report_return / cancel", () => {
     expect(context.signal.aborted).toBe(false);
     expect(Object.isFrozen(context)).toBe(true);
     expect(Object.isFrozen(context.actor)).toBe(true);
+  });
+
+  it("bootstrap revives the input by the carried input_schema (typed workflow)", async () => {
+    host.handlers["bootstrap"] = () => ({
+      input: { at: "2026-07-22T00:00:00.000Z", tags: ["a", "b"] },
+      input_schema: {
+        type: "object",
+        properties: {
+          at: { type: "string", format: "date-time" },
+          tags: { type: "array", items: { type: "string" }, uniqueItems: true },
+        },
+      },
+      context: CONTEXT_DATA,
+    });
+    const { input } = await client.bootstrap();
+    const typed = input as { at: Date; tags: Set<string> };
+    expect(typed.at).toBeInstanceOf(Date);
+    expect(typed.at.toISOString()).toBe("2026-07-22T00:00:00.000Z");
+    expect(typed.tags).toBeInstanceOf(Set);
+    expect([...typed.tags]).toEqual(["a", "b"]);
   });
 
   it("report_return sends the run's return value ({} result)", async () => {
@@ -427,7 +451,7 @@ describe("bootstrap / report_return / cancel", () => {
   });
 
   it("the cancel notification aborts the client's signal (context.signal)", async () => {
-    host.handlers["bootstrap"] = () => ({ input: null, context: CONTEXT_DATA });
+    host.handlers["bootstrap"] = () => ({ input: null, input_schema: null, context: CONTEXT_DATA });
     const { context } = await client.bootstrap();
     const aborted = new Promise<void>((resolve) => {
       context.signal.addEventListener("abort", () => {
