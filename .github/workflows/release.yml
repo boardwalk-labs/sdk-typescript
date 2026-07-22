@@ -1,6 +1,6 @@
 # Publish to npm with provenance on a version tag (v0.1.0 -> @boardwalk-labs/workflow@0.1.0).
 # Auth: npm Trusted Publishing via GitHub OIDC (no stored token). Configure the trusted publisher
-# for @boardwalk-labs/workflow on npmjs.com: org boardwalk-labs, repo boardwalk-labs/sdk,
+# for @boardwalk-labs/workflow on npmjs.com: org boardwalk-labs, repo boardwalk-labs/sdk-typescript,
 # workflow .github/workflows/release.yml. The tag must match package.json's version (guard below).
 
 name: Release

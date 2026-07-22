@@ -5,9 +5,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/boardwalk-labs/sdk.git"
+    "url": "git+https://github.com/boardwalk-labs/sdk-typescript.git"
   },
-  "homepage": "https://github.com/boardwalk-labs/sdk#readme",
+  "homepage": "https://github.com/boardwalk-labs/sdk-typescript#readme",
   "type": "module",
   "engines": {
     "node": ">=24"
