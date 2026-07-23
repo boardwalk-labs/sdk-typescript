@@ -349,3 +349,29 @@ function disallowedExpression(
       "a path is dotted fields + `[index]` only (e.g. `input.items[0].sku`)",
   };
 }
+
+// ============================================================================
+// The canonical default-entry candidates
+// ============================================================================
+
+/**
+ * Where a package's `run` entry is looked for when the descriptor declares no `entry`, in
+ * priority order. THE one list — the CLI's build, the backend's deploy-time derivation, and any
+ * other resolver consume it from here, so a package with two candidate files can never have its
+ * schemas derived from a different file than the one that runs.
+ */
+export const DEFAULT_ENTRY_SOURCES = [
+  "src/index.ts",
+  "src/index.tsx",
+  "src/index.mts",
+  "src/index.js",
+  "src/index.mjs",
+  "index.ts",
+  "index.tsx",
+  "index.mts",
+  "index.js",
+  "index.mjs",
+] as const;
+
+/** The Python default entry (a package is Python when this resolves and no TS candidate does). */
+export const PYTHON_DEFAULT_ENTRY = "main.py";

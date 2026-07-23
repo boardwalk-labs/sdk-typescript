@@ -152,12 +152,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * inputs, and `tool_invoke` handler outputs — because a rich value cannot cross the wire.
  */
 export function encodeCanonical(value: unknown): JsonValue {
-  const encoded = encodeNode(value);
-  return encoded === OMIT ? null : encoded;
+  return nullIfOmitted(value);
 }
 
 /** Sentinel: "omit this property" (functions/symbols/undefined inside objects). */
 const OMIT = Symbol("omit");
+
+/** Encode a value that must occupy a slot (an array/Set element, or the root): a value that
+ *  would be omitted as an object property becomes `null` instead (`JSON.stringify` parity). */
+function nullIfOmitted(value: unknown): JsonValue {
+  const encoded = encodeNode(value);
+  return encoded === OMIT ? null : encoded;
+}
 
 function encodeNode(value: unknown): JsonValue | typeof OMIT {
   if (value === null) return null;
@@ -183,16 +189,10 @@ function encodeNode(value: unknown): JsonValue | typeof OMIT {
     return Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString("base64");
   }
   if (value instanceof Set) {
-    return [...value].map((item) => {
-      const encoded = encodeNode(item);
-      return encoded === OMIT ? null : encoded;
-    });
+    return [...value].map(nullIfOmitted);
   }
   if (Array.isArray(value)) {
-    return value.map((item) => {
-      const encoded = encodeNode(item);
-      return encoded === OMIT ? null : encoded;
-    });
+    return value.map(nullIfOmitted);
   }
   const withToJson = value as { toJSON?: unknown };
   if (typeof withToJson.toJSON === "function") {

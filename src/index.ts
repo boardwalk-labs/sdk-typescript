@@ -26,7 +26,7 @@
 // Unit tests install an in-process fake instead: `installTestHost({ agent, secrets, ... })`
 // makes `run(input, context)` a plain function call over stubs.
 
-import { getHost, peekHost } from "./host_client.js";
+import { getHost, peekHost, reasonText } from "./host_client.js";
 import { isRunFatal, type UsageSnapshot } from "./protocol.js";
 import { reviveBySchema } from "./revive.js";
 import type {
@@ -297,10 +297,6 @@ export async function parallel<T>(thunks: readonly (() => Promise<T>)[]): Promis
   return results;
 }
 
-function reasonText(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason);
-}
-
 export { shell, type ShellOptions, type ShellResult } from "./shell.js";
 
 // The read-only run metadata (`run`'s second parameter) and its parts.
@@ -386,6 +382,8 @@ export {
   parseWorkflowDescriptor,
   validateConcurrencyKeyTemplate,
   DescriptorValidationError,
+  DEFAULT_ENTRY_SOURCES,
+  PYTHON_DEFAULT_ENTRY,
   type WorkflowDescriptor,
   type ConcurrencyKeyTemplateIssue,
 } from "./descriptor.js";

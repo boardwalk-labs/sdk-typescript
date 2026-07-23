@@ -84,9 +84,9 @@ export const RUN_FATAL_CODES = ["BUDGET_EXCEEDED", "CANCELLED"] as const;
  * implement this exact set; it is covered by the shared cross-language conformance suite.
  */
 export function isRunFatal(reason: unknown): boolean {
-  const r = reason as { code?: unknown; fatal?: unknown } | null;
-  if (r?.fatal === true) return true;
-  return r?.code === "BUDGET_EXCEEDED" || r?.code === "CANCELLED";
+  if (reason === null || (typeof reason !== "object" && typeof reason !== "function")) return false;
+  if ("fatal" in reason && reason.fatal === true) return true;
+  return "code" in reason && RUN_FATAL_CODES.some((code) => code === reason.code);
 }
 
 /**

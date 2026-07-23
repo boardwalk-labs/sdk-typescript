@@ -108,8 +108,26 @@ export interface HostInterface {
   usage(): Promise<UsageSnapshot>;
 }
 
-function reasonText(reason: unknown): string {
+/** A failure reason as display text (shared with index.ts — the SDKs log, never re-wrap). */
+export function reasonText(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
+}
+
+/**
+ * Drop `undefined`-valued entries so an optional field is ABSENT on the wire, never an
+ * explicit `undefined` (which `exactOptionalPropertyTypes` rightly rejects against the wire
+ * schemas' `field?: T`). The wire-param builders below all funnel through this.
+ */
+function omitUndefined<T extends Record<string, unknown>>(
+  obj: T,
+): { [K in keyof T]?: Exclude<T[K], undefined> } {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) out[key] = value;
+  }
+  // Why the cast: TS cannot relate the filtered copy to the mapped type, but the loop above
+  // is exactly its definition — every kept key holds a non-undefined value.
+  return out as { [K in keyof T]?: Exclude<T[K], undefined> };
 }
 
 // ============================================================================
@@ -255,15 +273,13 @@ export class HostClient implements HostInterface {
     const { scheduleId } = await this.request("workflows.schedule", {
       slug,
       input: encodeCanonical(input),
-      opts: {
-        ...(opts.cron !== undefined ? { cron: opts.cron } : {}),
-        ...(opts.rate !== undefined ? { rate: opts.rate } : {}),
-        ...(opts.at !== undefined
-          ? { at: opts.at instanceof Date ? opts.at.toISOString() : opts.at }
-          : {}),
-        ...(opts.timezone !== undefined ? { timezone: opts.timezone } : {}),
-        ...(opts.idempotencyKey !== undefined ? { idempotencyKey: opts.idempotencyKey } : {}),
-      },
+      opts: omitUndefined({
+        cron: opts.cron,
+        rate: opts.rate,
+        at: opts.at instanceof Date ? opts.at.toISOString() : opts.at,
+        timezone: opts.timezone,
+        idempotencyKey: opts.idempotencyKey,
+      }),
     });
     return scheduleId;
   }
@@ -284,9 +300,7 @@ export class HostClient implements HostInterface {
     const { result } = await this.request("humanInput", { opts });
     // Rebuild without explicit-undefined optionals (exactOptionalPropertyTypes).
     if ("values" in result) {
-      return result.other !== undefined
-        ? { values: result.values, other: result.other }
-        : { values: result.values };
+      return { values: result.values, ...omitUndefined({ other: result.other }) };
     }
     return result;
   }
@@ -310,27 +324,25 @@ export class HostClient implements HostInterface {
       name,
       contentType,
       body: wireBody,
-      ...(metadata !== undefined ? { metadata } : {}),
+      ...omitUndefined({ metadata }),
     });
     return ref;
   }
 
   async openBrowser(opts: BrowserSessionOptions | undefined): Promise<BrowserSession> {
-    const { sessionId } = await this.request("computer.openBrowser", {
-      ...(opts !== undefined ? { opts } : {}),
-    });
+    const { sessionId } = await this.request("computer.openBrowser", omitUndefined({ opts }));
     return this.makeBrowserSession(sessionId);
   }
 
   async shell(cmd: string, opts: ShellOptions | undefined): Promise<ShellResult> {
-    return await this.request("shell", { cmd, ...(opts !== undefined ? { opts } : {}) });
+    return await this.request("shell", { cmd, ...omitUndefined({ opts }) });
   }
 
   phase(name: string, opts: PhaseOptions | undefined): void {
     this.sendFrame({
       jsonrpc: "2.0",
       method: "phase",
-      params: { name, ...(opts !== undefined ? { opts } : {}) },
+      params: { name, ...omitUndefined({ opts }) },
     });
   }
 
@@ -365,7 +377,7 @@ export class HostClient implements HostInterface {
         return (
           await request("computer.browser.screenshot", {
             sessionId,
-            ...(opts?.fullPage !== undefined ? { fullPage: opts.fullPage } : {}),
+            ...omitUndefined({ fullPage: opts?.fullPage }),
           })
         ).ref;
       },
@@ -373,14 +385,14 @@ export class HostClient implements HostInterface {
         return (
           await request("computer.browser.console", {
             sessionId,
-            ...(opts?.since !== undefined ? { since: opts.since } : {}),
+            ...omitUndefined({ since: opts?.since }),
           })
         ).entries;
       },
       async network(opts?: { since?: number }) {
         const { entries } = await request("computer.browser.network", {
           sessionId,
-          ...(opts?.since !== undefined ? { since: opts.since } : {}),
+          ...omitUndefined({ since: opts?.since }),
         });
         // Rebuild without explicit-undefined optionals (exactOptionalPropertyTypes).
         return entries.map(
@@ -388,7 +400,7 @@ export class HostClient implements HostInterface {
             method: e.method,
             url: e.url,
             timestamp: e.timestamp,
-            ...(e.status !== undefined ? { status: e.status } : {}),
+            ...omitUndefined({ status: e.status }),
           }),
         );
       },
@@ -554,24 +566,22 @@ function toWireAgentOptions(opts: AgentOptions | undefined): AgentWireOptions | 
   const { tools, session, ...rest } = opts;
   return {
     ...rest,
-    ...(tools !== undefined
-      ? {
-          tools: tools.map(
-            (t): ToolDeclaration => ({
-              name: t.name,
-              description: t.description,
-              input_schema: t.inputSchema,
-            }),
-          ),
-        }
-      : {}),
-    ...(session !== undefined ? { sessionId: session.id } : {}),
+    ...omitUndefined({
+      tools: tools?.map(
+        (t): ToolDeclaration => ({
+          name: t.name,
+          description: t.description,
+          input_schema: t.inputSchema,
+        }),
+      ),
+      sessionId: session?.id,
+    }),
   };
 }
 
 function toWireCallOptions(opts: CallOptions | undefined): { idempotencyKey?: string } | undefined {
   if (opts === undefined) return undefined;
-  return opts.idempotencyKey !== undefined ? { idempotencyKey: opts.idempotencyKey } : {};
+  return omitUndefined({ idempotencyKey: opts.idempotencyKey });
 }
 
 // ============================================================================
