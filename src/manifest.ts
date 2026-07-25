@@ -151,8 +151,19 @@ const relativePath = (label: string) =>
 /** Workspace-relative, no escapes: rejects absolute paths, backslashes, `..` and `.` segments. */
 const persistPath = relativePath("persist paths");
 
+// `key` scopes the persistent workspace, so ONE workflow keeps N independent compounding states (per
+// customer, per repo, per tenant). It is a RUNTIME-INTERPOLATED template over the input, using exactly
+// the grammar of `concurrency.key` — `${input.<path>}` interpolations, each a restricted accessor rooted
+// at `input`. Syntax is checked at deploy (`validateConcurrencyKeyTemplate`, descriptor.ts); value
+// resolution happens at run creation on the control plane, never here.
+//
+// It is an INDEPENDENT axis from `concurrency.key`, sharing only the grammar. They answer different
+// questions — which state do I compound into, versus how many runs may execute at once — and an author
+// may legitimately set one, the other, both, or neither, with different templates. Persistence is made
+// safe by the merge, never by serializing (docs/WORKSPACE_PERSISTENCE.md §4, §6.1).
 const workspaceSchema = z.strictObject({
   persist: z.union([z.boolean(), z.array(persistPath).min(1).max(50)]).optional(),
+  key: z.string().min(1).max(200).optional(),
 });
 
 // ============================================================================

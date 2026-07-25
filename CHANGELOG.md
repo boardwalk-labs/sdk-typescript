@@ -4,6 +4,37 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.3.2
+
+### Added
+
+- **`workspace.key`** — an optional template that scopes a workflow's persistent workspace, so ONE
+  workflow keeps N independent compounding states (per customer, per repo, per tenant). Without it,
+  per-customer state forces N workflows or N environments, neither of which is what the author means.
+
+  ```jsonc
+  { "workspace": { "persist": ["index"], "key": "${input.repo}" } }
+  ```
+
+  It uses exactly the grammar of `concurrency.key` — `${input.<path>}` interpolations, each a
+  restricted accessor rooted at `input` — and is validated at deploy by the same checker, which now
+  names the offending FIELD so an author with both set knows which template to fix. Value resolution
+  happens at run creation on the control plane, never in this package.
+
+  `workspace.key` is an **independent axis** from `concurrency.key`, sharing only the grammar. They
+  answer different questions — which state do I compound into, versus how many runs may execute at
+  once — so an author may set one, the other, both, or neither, with different templates. Persistence
+  is made safe by the store's merge, never by serializing.
+
+## 0.3.1
+
+### Added
+
+- **`workspace_persist_skipped`** run event (`log` channel) — the frame a producer needs to tell an
+  author that a `/workspace` snapshot was dropped, carrying `reason` plus `bytes` / `maxBytes` /
+  `detail` where known. Publishing it gates the runner change that emits it: an unknown kind has no
+  variant to match, so `parseRunEventLenient` drops the whole frame.
+
 ## 0.3.0
 
 ### Changed (breaking — the descriptor replaces the meta literal)

@@ -177,18 +177,27 @@ export function parseWorkflowDescriptor(text: string): WorkflowDescriptor {
     throw new DescriptorValidationError(`workflow.jsonc failed descriptor validation:\n${issues}`);
   }
 
-  const { concurrency } = result.data;
+  // Both key templates share one grammar and one validator. They are separate FIELDS answering separate
+  // questions (which workspace do I compound into, versus how many runs may run at once), so each is
+  // checked on its own and neither implies the other.
+  const { concurrency, workspace } = result.data;
   if (concurrency.mode === "serial" && concurrency.key !== undefined) {
-    const templateIssues = validateConcurrencyKeyTemplate(concurrency.key);
-    if (templateIssues.length > 0) {
-      const lines = templateIssues
-        .map((i) => `  at index ${String(i.index)}: ${i.message}`)
-        .join("\n");
-      throw new DescriptorValidationError(`concurrency.key template is invalid:\n${lines}`);
-    }
+    assertKeyTemplate("concurrency.key", concurrency.key);
+  }
+  if (workspace?.key !== undefined) {
+    assertKeyTemplate("workspace.key", workspace.key);
   }
 
   return result.data;
+}
+
+/** Validate one `${input.<path>}` template, naming the FIELD in the error so an author with both set
+ *  knows which one is wrong. */
+function assertKeyTemplate(field: string, template: string): void {
+  const issues = validateConcurrencyKeyTemplate(template);
+  if (issues.length === 0) return;
+  const lines = issues.map((i) => `  at index ${String(i.index)}: ${i.message}`).join("\n");
+  throw new DescriptorValidationError(`${field} template is invalid:\n${lines}`);
 }
 
 // ============================================================================

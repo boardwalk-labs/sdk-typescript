@@ -176,6 +176,42 @@ describe("parseWorkflowDescriptor", () => {
     );
     expect(d.concurrency).toEqual({ mode: "serial", key: "${input.items[0].sku}" });
   });
+
+  it("accepts a workspace key, which scopes persistent state", () => {
+    const d = parseWorkflowDescriptor(
+      '{"slug": "x", "triggers": [{"kind": "manual"}], ' +
+        '"workspace": {"persist": ["index"], "key": "${input.repo}"}}',
+    );
+    expect(d.workspace).toEqual({ persist: ["index"], key: "${input.repo}" });
+  });
+
+  it("rejects a workspace key with bad template syntax, naming the field", () => {
+    // An author with both keys set has to know WHICH one is wrong.
+    const text = '{"slug": "x", "triggers": [{"kind": "manual"}], "workspace": {"key": "${repo}"}}';
+    expect(() => parseWorkflowDescriptor(text)).toThrow(DescriptorValidationError);
+    expect(() => parseWorkflowDescriptor(text)).toThrow(/workspace\.key/);
+  });
+
+  it("lets the two keys differ — they are independent axes", () => {
+    // Serialized per customer for an external rate limit, scoped per repo for state. Requiring them to
+    // match would collapse a scheduling knob and a scoping knob into one.
+    const d = parseWorkflowDescriptor(
+      '{"slug": "x", "triggers": [{"kind": "manual"}], ' +
+        '"workspace": {"key": "${input.repo}"}, ' +
+        '"concurrency": {"mode": "serial", "key": "${input.customer}"}}',
+    );
+    expect(d.workspace?.key).toBe("${input.repo}");
+    expect(d.concurrency).toEqual({ mode: "serial", key: "${input.customer}" });
+  });
+
+  it("accepts a workspace key with no persist declaration (memory-only workflows)", () => {
+    // `agent({ memory })` declares nothing, so a workflow can legitimately want a scope key without
+    // ever naming a persist path.
+    const d = parseWorkflowDescriptor(
+      '{"slug": "x", "triggers": [{"kind": "manual"}], "workspace": {"key": "${input.tenant}"}}',
+    );
+    expect(d.workspace).toEqual({ key: "${input.tenant}" });
+  });
 });
 
 // ============================================================================
