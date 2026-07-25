@@ -153,6 +153,28 @@ const egressDeniedEvent = z.strictObject({
   reason: z.string().min(1),
 });
 
+// The run produced a `/workspace` snapshot and it was NOT stored. Emitted by the runtime substrate,
+// not the workflow program. Same job as `egress_denied`: without a frame on the wire, the only
+// symptom of dropped state is an agent that quietly gets worse over weeks. Diagnostic, non-terminal —
+// the run still succeeds and the next one redoes the filesystem work.
+const workspacePersistSkippedEvent = z.strictObject({
+  ...envelopeShape,
+  kind: z.literal("workspace_persist_skipped"),
+  /**
+   * Why the snapshot was dropped:
+   * - `too_large`    — the archive exceeded the per-snapshot ceiling (`maxBytes`).
+   * - `storage_limit` — storing it would breach the org's storage ceiling.
+   * - `error`        — archiving or uploading threw (`detail` carries the message).
+   */
+  reason: z.enum(["too_large", "storage_limit", "error"]),
+  /** The archive's byte size, when it got far enough to be measured. */
+  bytes: z.number().int().nonnegative().optional(),
+  /** The ceiling that was exceeded, for the size-limited reasons. Display-only. */
+  maxBytes: z.number().int().positive().optional(),
+  /** Human-readable detail — the underlying error message for `error`. */
+  detail: z.string().optional(),
+});
+
 // -- agent channel ----------------------------------------------------------------
 //
 // `turn_started`/`turn_ended` bracket the turns of ONE `agent()` leaf and carry that leaf's
@@ -335,6 +357,7 @@ export const runEventSchema = z.discriminatedUnion("kind", [
   outputEvent,
   programOutputEvent,
   egressDeniedEvent,
+  workspacePersistSkippedEvent,
   turnStarted,
   turnEnded,
   textStart,
@@ -451,6 +474,7 @@ const KIND_TO_CHANNEL: Record<RunEventKind, Channel> = {
   output: "output",
   program_output: "log",
   egress_denied: "log",
+  workspace_persist_skipped: "log",
   turn_started: "agent",
   turn_ended: "agent",
   text_start: "agent",

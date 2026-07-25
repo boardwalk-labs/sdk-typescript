@@ -60,6 +60,20 @@ describe("schema round-trips", () => {
       method: "CONNECT",
       reason: "not in this run's egress allowlist",
     },
+    {
+      ...ENVELOPE,
+      kind: "workspace_persist_skipped",
+      reason: "too_large",
+      bytes: 700 * 1024 * 1024,
+      maxBytes: 512 * 1024 * 1024,
+    },
+    { ...ENVELOPE, kind: "workspace_persist_skipped", reason: "storage_limit", bytes: 4096 },
+    {
+      ...ENVELOPE,
+      kind: "workspace_persist_skipped",
+      reason: "error",
+      detail: "tar exited with code 2",
+    },
     { ...ENVELOPE, kind: "turn_started", agentId: "agt_1" },
     { ...ENVELOPE, kind: "turn_started", agentId: "agt_2", agentName: "reviewer" },
     {
