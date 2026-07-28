@@ -88,11 +88,42 @@ const workflowRunTriggerSchema = z.strictObject({
     .optional(),
 });
 
+/** GitHub semantic trigger events — a curated vocabulary, not raw provider actions. Each name maps
+ *  to a tested provider-event + condition on the platform (e.g. `pr.merged` is
+ *  `pull_request.closed` with `merged: true`); authors never express raw actions or payload
+ *  filters. Fires only for repos covered by the org's Boardwalk GitHub connection. */
+export const GITHUB_TRIGGER_EVENTS = [
+  "pr.opened", // opened or ready_for_review; never fires for a PR whose head is a fork
+  "pr.merged", // closed with merged == true
+  "issue.opened",
+  "issue.commented", // comments on real issues only (not PR conversation threads)
+  "ci.completed", // check_suite completed — covers Actions and any Checks-API CI
+] as const;
+
+/** A GitHub repository full name, `owner/name`. */
+const githubRepoFullName = z
+  .string()
+  .max(140)
+  .regex(
+    /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]{1,100}$/,
+    "repos entries must be owner/name",
+  );
+
+/** Fire on a GitHub event, delivered through the org's GitHub connection — no URL, no secret, no
+ *  webhook wiring; the platform verifies, filters, and dedupes before any run is created. `repos`
+ *  narrows to specific repositories; omitted = every repo the installation covers. */
+const githubTriggerSchema = z.strictObject({
+  kind: z.literal("github"),
+  event: z.enum(GITHUB_TRIGGER_EVENTS),
+  repos: z.array(githubRepoFullName).min(1).max(50).optional(),
+});
+
 const triggerSchema = z.discriminatedUnion("kind", [
   cronTriggerSchema,
   webhookTriggerSchema,
   manualTriggerSchema,
   workflowRunTriggerSchema,
+  githubTriggerSchema,
 ]);
 
 // ============================================================================
@@ -320,6 +351,8 @@ export type CronTrigger = z.infer<typeof cronTriggerSchema>;
 export type WebhookTrigger = z.infer<typeof webhookTriggerSchema>;
 export type ManualTrigger = z.infer<typeof manualTriggerSchema>;
 export type WorkflowRunTrigger = z.infer<typeof workflowRunTriggerSchema>;
+export type GithubTrigger = z.infer<typeof githubTriggerSchema>;
+export type GithubTriggerEvent = (typeof GITHUB_TRIGGER_EVENTS)[number];
 export type Concurrency = z.infer<typeof concurrencySchema>;
 export type Budget = z.infer<typeof budgetSchema>;
 export type Workspace = z.infer<typeof workspaceSchema>;

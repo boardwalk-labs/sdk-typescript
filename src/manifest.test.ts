@@ -205,6 +205,56 @@ describe("triggers", () => {
     });
   });
 
+  it("accepts a github trigger, with and without a repos narrowing", () => {
+    const m = parse({
+      ...MINIMAL,
+      triggers: [
+        { kind: "github", event: "pr.merged", repos: ["acme/api", "acme/web-app"] },
+        { kind: "github", event: "issue.opened" },
+      ],
+    });
+    expect(m.triggers[0]).toEqual({
+      kind: "github",
+      event: "pr.merged",
+      repos: ["acme/api", "acme/web-app"],
+    });
+    expect(m.triggers[1]).toEqual({ kind: "github", event: "issue.opened" });
+  });
+
+  it("accepts every semantic github event", () => {
+    for (const event of [
+      "pr.opened",
+      "pr.merged",
+      "issue.opened",
+      "issue.commented",
+      "ci.completed",
+    ]) {
+      expect(parse({ ...MINIMAL, triggers: [{ kind: "github", event }] }).triggers).toHaveLength(1);
+    }
+  });
+
+  it("rejects a github trigger with a raw provider action, an empty/bad repos list, or extras", () => {
+    // Raw provider actions are NOT the vocabulary — semantic names only.
+    expect(() =>
+      parse({ ...MINIMAL, triggers: [{ kind: "github", event: "pull_request.closed" }] }),
+    ).toThrow();
+    expect(() => parse({ ...MINIMAL, triggers: [{ kind: "github" }] })).toThrow();
+    expect(() =>
+      parse({ ...MINIMAL, triggers: [{ kind: "github", event: "pr.merged", repos: [] }] }),
+    ).toThrow();
+    // A bare repo name is ambiguous — owner/name is required.
+    expect(() =>
+      parse({ ...MINIMAL, triggers: [{ kind: "github", event: "pr.merged", repos: ["api"] }] }),
+    ).toThrow(/owner\/name/);
+    // No inline filter escape hatch — filtering beyond repos is the semantic event's job.
+    expect(() =>
+      parse({
+        ...MINIMAL,
+        triggers: [{ kind: "github", event: "pr.merged", filter: { merged: true } }],
+      }),
+    ).toThrow();
+  });
+
   it("rejects a workflow_run with no upstream workflows, a bad conclusion, or an invalid slug", () => {
     expect(() =>
       parse({ ...MINIMAL, triggers: [{ kind: "workflow_run", workflows: [] }] }),
