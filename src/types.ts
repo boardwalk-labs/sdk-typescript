@@ -88,7 +88,7 @@ export interface ReasoningOptions {
 /**
  * Options for an {@link import("./index.js").agent} leaf call. The engine's built-in coding
  * tools (`read`, `write`, `edit`, `ls`, `grep`, `glob`, `bash`, `apply_patch`, `diagnostics`,
- * `clock`, `todo`, `webfetch`, `http`, `web_search`, `artifacts`, plus `subagent` and
+ * `navigate`, `clock`, `todo`, `webfetch`, `http`, `web_search`, `artifacts`, plus `subagent` and
  * `run_code`) are ON BY DEFAULT — a plain `agent(prompt)` can already read, edit, and run
  * commands in the run's workspace; `builtins` scopes that set. Everything else is PER-AGENT:
  * each call brings its own inline `tools` (added on top of the built-ins), `mcp` servers,
@@ -145,9 +145,9 @@ export interface AgentOptions {
   /**
    * Which engine built-in tools this leaf gets. Defaults to `"all"`.
    * - `"all"` — every engine built-in is available.
-   * - `"read-only"` — the non-mutating set (`read`, `ls`, `grep`, `glob`, `diagnostics`, `clock`,
-   *   `todo`, `webfetch`, `web_search`); drops `write`, `edit`, `apply_patch`, `bash`, `http`,
-   *   artifact writes, and both `subagent` and `run_code`.
+   * - `"read-only"` — the non-mutating set (`read`, `ls`, `grep`, `glob`, `diagnostics`,
+   *   `navigate`, `clock`, `todo`, `webfetch`, `web_search`); drops `write`, `edit`, `apply_patch`,
+   *   `bash`, `http`, artifact writes, and both `subagent` and `run_code`.
    * - `"none"` — no built-ins; the leaf has only its inline {@link tools}.
    * - `string[]` — an explicit subset of built-in names.
    *
