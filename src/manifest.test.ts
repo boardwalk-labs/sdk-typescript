@@ -273,6 +273,24 @@ describe("triggers", () => {
     ).toThrow();
   });
 
+  it("accepts every semantic jira event and rejects raw actions/extras", () => {
+    for (const event of ["issue.created", "issue.status_changed", "issue.commented"]) {
+      expect(parse({ ...MINIMAL, triggers: [{ kind: "jira", event }] }).triggers).toEqual([
+        { kind: "jira", event },
+      ]);
+    }
+    expect(() =>
+      parse({ ...MINIMAL, triggers: [{ kind: "jira", event: "jira:issue_created" }] }),
+    ).toThrow();
+    expect(() => parse({ ...MINIMAL, triggers: [{ kind: "jira" }] })).toThrow();
+    expect(() =>
+      parse({
+        ...MINIMAL,
+        triggers: [{ kind: "jira", event: "issue.created", jql: "project = ENG" }],
+      }),
+    ).toThrow();
+  });
+
   it("rejects a workflow_run with no upstream workflows, a bad conclusion, or an invalid slug", () => {
     expect(() =>
       parse({ ...MINIMAL, triggers: [{ kind: "workflow_run", workflows: [] }] }),

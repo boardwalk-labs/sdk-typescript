@@ -134,6 +134,22 @@ const linearTriggerSchema = z.strictObject({
   event: z.enum(LINEAR_TRIGGER_EVENTS),
 });
 
+/** Jira semantic trigger events — same discipline as GitHub's and Linear's: curated names the
+ *  platform maps to provider events + conditions (`issue.status_changed` is a `jira:issue_updated`
+ *  whose changelog includes a status item), never raw actions. */
+export const JIRA_TRIGGER_EVENTS = [
+  "issue.created",
+  "issue.status_changed",
+  "issue.commented",
+] as const;
+
+/** Fire on a Jira event, delivered through the org's Jira connection — no URL, no secret; the
+ *  platform registers, verifies, renews, and dedupes the site webhook itself. */
+const jiraTriggerSchema = z.strictObject({
+  kind: z.literal("jira"),
+  event: z.enum(JIRA_TRIGGER_EVENTS),
+});
+
 const triggerSchema = z.discriminatedUnion("kind", [
   cronTriggerSchema,
   webhookTriggerSchema,
@@ -141,6 +157,7 @@ const triggerSchema = z.discriminatedUnion("kind", [
   workflowRunTriggerSchema,
   githubTriggerSchema,
   linearTriggerSchema,
+  jiraTriggerSchema,
 ]);
 
 // ============================================================================
@@ -372,6 +389,8 @@ export type GithubTrigger = z.infer<typeof githubTriggerSchema>;
 export type GithubTriggerEvent = (typeof GITHUB_TRIGGER_EVENTS)[number];
 export type LinearTrigger = z.infer<typeof linearTriggerSchema>;
 export type LinearTriggerEvent = (typeof LINEAR_TRIGGER_EVENTS)[number];
+export type JiraTrigger = z.infer<typeof jiraTriggerSchema>;
+export type JiraTriggerEvent = (typeof JIRA_TRIGGER_EVENTS)[number];
 export type Concurrency = z.infer<typeof concurrencySchema>;
 export type Budget = z.infer<typeof budgetSchema>;
 export type Workspace = z.infer<typeof workspaceSchema>;
