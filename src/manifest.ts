@@ -67,9 +67,18 @@ const cronTriggerSchema = z.strictObject({
   input: jsonSchemaObject.optional(),
 });
 
+const webhookName = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(SLUG_RE, "webhook name must be alphanumeric with hyphens");
+
+/** Attach to one of the org's webhooks. Any number of workflows may attach to the same one, and all
+ *  of them run on every delivery — narrow with the sender's own event picker, not a filter here.
+ *  Only the NAME is program logic; URL/secret/verification are console-owned deployment wiring. */
 const webhookTriggerSchema = z.strictObject({
   kind: z.literal("webhook"),
-  auth: z.enum(["token", "signature"]),
+  name: webhookName,
 });
 
 const manualTriggerSchema = z.strictObject({

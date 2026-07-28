@@ -4,6 +4,23 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.3.7
+
+### Changed
+
+- **BREAKING — `webhook` triggers attach to a NAMED org webhook.**
+  `{ "kind": "webhook", "auth": "token" | "signature" }` becomes
+  `{ "kind": "webhook", "name": "<webhook-name>" }`. A webhook is now an org-level endpoint (name,
+  URL, secret, verification preset) that any number of workflows attach to, and every attached
+  workflow runs on every delivery — not a per-workflow URL. The `auth` family is gone: how a
+  delivery is verified is a property of the endpoint, chosen where the endpoint is created, so it
+  never belonged in a program's descriptor. Narrow what arrives with the sender's own event picker
+  (a second endpoint), not a filter here.
+
+  Migration: create the endpoint (`boardwalk webhooks create <name>`, or the dashboard's Connections
+  page) and reference it by name. A descriptor naming a webhook the org has not created yet still
+  deploys — it shows as not-connected until it exists.
+
 ## 0.3.4
 
 ### Added

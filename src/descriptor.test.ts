@@ -107,7 +107,7 @@ describe("parseWorkflowDescriptor", () => {
     const d = parseWorkflowDescriptor(`{
       "slug": "refund-handler",
       "entry": "src/refunds.ts",
-      "triggers": [{ "kind": "webhook", "auth": "token" }],
+      "triggers": [{ "kind": "webhook", "name": "refunds" }],
       "budget": { "max_usd": 5, "max_compute_seconds": 1200 },
       "concurrency": { "mode": "serial", "key": "refund-\${input.customerId}" },
       "files": ["prompts/**"],

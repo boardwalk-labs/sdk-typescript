@@ -27,7 +27,7 @@ describe("workflowManifestSchema — core", () => {
       entry: "src/digest.ts",
       triggers: [
         { kind: "cron", expr: "0 9 * * 1-5", timezone: "America/Anchorage" },
-        { kind: "webhook", auth: "token" },
+        { kind: "webhook", name: "stripe-prod" },
       ],
       permissions: { secrets: [{ name: "GITHUB_TOKEN" }] },
       env: { LOG_LEVEL: "info", GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" },
@@ -165,6 +165,19 @@ describe("triggers", () => {
 
   it("rejects generic event triggers (only the specific workflow_run kind exists)", () => {
     expect(() => parse({ ...MINIMAL, triggers: [{ kind: "event", event_name: "x" }] })).toThrow();
+  });
+
+  it("attaches a webhook trigger to a named org webhook", () => {
+    const m = parse({ ...MINIMAL, triggers: [{ kind: "webhook", name: "stripe-prod" }] });
+    expect(m.triggers[0]).toEqual({ kind: "webhook", name: "stripe-prod" });
+  });
+
+  it("rejects a webhook trigger with no name, a bad name, or the deleted auth field", () => {
+    const webhook = (t: unknown) => () => parse({ ...MINIMAL, triggers: [t] });
+    expect(webhook({ kind: "webhook" })).toThrow();
+    expect(webhook({ kind: "webhook", name: "has space" })).toThrow(/alphanumeric/);
+    // `auth` moved to the webhook object in the console; a stale descriptor must fail loudly.
+    expect(webhook({ kind: "webhook", name: "ok", auth: "token" })).toThrow();
   });
 
   it("carries a cron trigger's static input through validation", () => {
