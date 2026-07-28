@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { workflowManifestSchema } from "./manifest.js";
 
 const MINIMAL = { slug: "hello", triggers: [{ kind: "manual" }] };
@@ -447,5 +448,61 @@ describe("runs_on self-hosted pool default", () => {
       runs_on: { kind: "self-hosted", pool: "gpu-fleet", labels: ["gpu"] },
     });
     expect(parsed.runs_on).toEqual({ kind: "self-hosted", pool: "gpu-fleet", labels: ["gpu"] });
+  });
+});
+
+// The schema doubles as the published JSON Schema (https://boardwalk.sh/schemas/workflow.json),
+// which is how an editor documents `workflow.jsonc` on hover. Descriptions are part of that
+// contract: an undocumented field ships an empty tooltip.
+interface Node {
+  description?: string;
+  const?: unknown;
+  properties?: Record<string, Node | undefined>;
+}
+
+describe("field descriptions (the published JSON Schema)", () => {
+  const jsonSchema = z.toJSONSchema(workflowManifestSchema, { target: "draft-7", io: "input" });
+  const properties = jsonSchema.properties ?? {};
+
+  it("documents every top-level field", () => {
+    const undocumented = Object.entries(properties)
+      .filter(([, value]) => typeof value !== "object" || !value.description)
+      .map(([key]) => key);
+    expect(undocumented).toEqual([]);
+  });
+
+  it("keeps descriptions through optional, default, and union wrappers", () => {
+    // Each wrapper drops the description if `.describe()` lands on the wrong side of the chain.
+    expect(properties.title).toHaveProperty("description"); // .optional()
+    expect(properties.runs_on).toHaveProperty("description"); // .default() over a union
+    expect(properties.concurrency).toHaveProperty("description"); // .default() over a union
+    expect(properties.callable_by).toHaveProperty("description"); // .default() over a union
+  });
+
+  it("documents each trigger variant and the fields inside it", () => {
+    const variants = (properties.triggers as unknown as { items: { oneOf: Node[] } }).items.oneOf;
+    expect(variants.length).toBeGreaterThan(1);
+    for (const variant of variants) {
+      expect(variant.description).toBeTruthy();
+    }
+    const cron = variants.find((v) => v.properties?.kind?.const === "cron");
+    expect(cron?.properties?.expr?.description).toBeTruthy();
+    expect(cron?.properties?.timezone?.description).toBeTruthy();
+  });
+
+  it("writes no em dashes (these strings are product copy, not code comments)", () => {
+    const offenders: string[] = [];
+    const walk = (node: unknown): void => {
+      if (Array.isArray(node)) return node.forEach(walk);
+      if (typeof node !== "object" || node === null) return;
+      for (const [key, value] of Object.entries(node)) {
+        if (key === "description" && typeof value === "string" && /[—–]/.test(value)) {
+          offenders.push(value);
+        }
+        walk(value);
+      }
+    };
+    walk(jsonSchema);
+    expect(offenders).toEqual([]);
   });
 });

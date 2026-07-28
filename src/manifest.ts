@@ -58,14 +58,29 @@ const cronExpr = z
     { message: "cron expression must have 5 fields (standard) or 6 (with seconds)" },
   );
 
-const cronTriggerSchema = z.strictObject({
-  kind: z.literal("cron"),
-  expr: cronExpr,
-  timezone: z.string().min(1).max(80).optional(),
-  // Static input for each scheduled run (must satisfy the workflow's input_schema when declared).
-  // Omitted ⇒ the run fires with no input. A JSON object, mirroring input_schema's `type: object`.
-  input: jsonSchemaObject.optional(),
-});
+const cronTriggerSchema = z
+  .strictObject({
+    kind: z.literal("cron"),
+    expr: cronExpr.describe("Cron expression: 5 fields (standard) or 6 (with seconds)."),
+    timezone: z
+      .string()
+      .min(1)
+      .max(80)
+      .optional()
+      .describe(
+        "IANA timezone the expression is evaluated in, for example `America/Anchorage`. " +
+          "Omitted: UTC.",
+      ),
+    // Static input for each scheduled run (must satisfy the workflow's input_schema when declared).
+    // Omitted ⇒ the run fires with no input. A JSON object, mirroring input_schema's `type: object`.
+    input: jsonSchemaObject
+      .optional()
+      .describe(
+        "Static input passed to every scheduled run. Must satisfy the workflow's derived input " +
+          "schema. Omitted: the run fires with no input.",
+      ),
+  })
+  .describe("Run on a schedule.");
 
 const webhookName = z
   .string()
@@ -76,26 +91,46 @@ const webhookName = z
 /** Attach to one of the org's webhooks. Any number of workflows may attach to the same one, and all
  *  of them run on every delivery — narrow with the sender's own event picker, not a filter here.
  *  Only the NAME is program logic; URL/secret/verification are console-owned deployment wiring. */
-const webhookTriggerSchema = z.strictObject({
-  kind: z.literal("webhook"),
-  name: webhookName,
-});
+const webhookTriggerSchema = z
+  .strictObject({
+    kind: z.literal("webhook"),
+    name: webhookName.describe("Name of the org webhook endpoint to attach to."),
+  })
+  .describe(
+    "Run when one of the org's webhook endpoints receives a delivery. Only the name lives here: " +
+      "the URL, secret, and verification are console-owned wiring.",
+  );
 
-const manualTriggerSchema = z.strictObject({
-  kind: z.literal("manual"),
-});
+const manualTriggerSchema = z
+  .strictObject({
+    kind: z.literal("manual"),
+  })
+  .describe(
+    "Run on demand: from the CLI, the console, the API, or another workflow's `workflows.call`.",
+  );
 
 /** React to ANOTHER workflow's run finishing (GitHub-Actions `on: workflow_run`). When any of the
  *  named upstream workflows (slugs in the same org) completes, this workflow runs with the run-event
  *  payload as its input. `conclusions` optionally narrows to specific outcomes; omitted = any. */
-const workflowRunTriggerSchema = z.strictObject({
-  kind: z.literal("workflow_run"),
-  workflows: z.array(workflowSlug).min(1).max(20),
-  conclusions: z
-    .array(z.enum(["success", "failure", "cancelled"]))
-    .min(1)
-    .optional(),
-});
+const workflowRunTriggerSchema = z
+  .strictObject({
+    kind: z.literal("workflow_run"),
+    workflows: z
+      .array(workflowSlug)
+      .min(1)
+      .max(20)
+      .describe("Slugs of the upstream workflows to watch, in the same org."),
+    conclusions: z
+      .array(z.enum(["success", "failure", "cancelled"]))
+      .min(1)
+      .optional()
+      .describe(
+        "Narrow to specific upstream outcomes. Omitted: any conclusion fires this workflow.",
+      ),
+  })
+  .describe(
+    "Run when another workflow's run finishes. The run-event payload becomes this workflow's input.",
+  );
 
 /** GitHub semantic trigger events — a curated vocabulary, not raw provider actions. Each name maps
  *  to a tested provider-event + condition on the platform (e.g. `pr.merged` is
@@ -121,11 +156,24 @@ const githubRepoFullName = z
 /** Fire on a GitHub event, delivered through the org's GitHub connection — no URL, no secret, no
  *  webhook wiring; the platform verifies, filters, and dedupes before any run is created. `repos`
  *  narrows to specific repositories; omitted = every repo the installation covers. */
-const githubTriggerSchema = z.strictObject({
-  kind: z.literal("github"),
-  event: z.enum(GITHUB_TRIGGER_EVENTS),
-  repos: z.array(githubRepoFullName).min(1).max(50).optional(),
-});
+const githubTriggerSchema = z
+  .strictObject({
+    kind: z.literal("github"),
+    event: z.enum(GITHUB_TRIGGER_EVENTS).describe("Which GitHub event fires the workflow."),
+    repos: z
+      .array(githubRepoFullName)
+      .min(1)
+      .max(50)
+      .optional()
+      .describe(
+        "Narrow to specific repositories, each `owner/name`. Omitted: every repo the " +
+          "installation covers.",
+      ),
+  })
+  .describe(
+    "Run on a GitHub event, delivered through the org's GitHub connection. No URL and no secret: " +
+      "the platform verifies, filters, and dedupes before creating a run.",
+  );
 
 /** Linear semantic trigger events — same discipline as GitHub's: curated names the platform maps
  *  to provider events + conditions (`issue.status_changed` is `Issue`/`update` with a state
@@ -138,10 +186,15 @@ export const LINEAR_TRIGGER_EVENTS = [
 
 /** Fire on a Linear event, delivered through the org's Linear connection — no URL, no secret;
  *  the platform creates and verifies the workspace webhook itself. */
-const linearTriggerSchema = z.strictObject({
-  kind: z.literal("linear"),
-  event: z.enum(LINEAR_TRIGGER_EVENTS),
-});
+const linearTriggerSchema = z
+  .strictObject({
+    kind: z.literal("linear"),
+    event: z.enum(LINEAR_TRIGGER_EVENTS).describe("Which Linear event fires the workflow."),
+  })
+  .describe(
+    "Run on a Linear event, delivered through the org's Linear connection. No URL and no secret: " +
+      "the platform creates and verifies the workspace webhook itself.",
+  );
 
 /** Jira semantic trigger events — same discipline as GitHub's and Linear's: curated names the
  *  platform maps to provider events + conditions (`issue.status_changed` is a `jira:issue_updated`
@@ -154,10 +207,15 @@ export const JIRA_TRIGGER_EVENTS = [
 
 /** Fire on a Jira event, delivered through the org's Jira connection — no URL, no secret; the
  *  platform registers, verifies, renews, and dedupes the site webhook itself. */
-const jiraTriggerSchema = z.strictObject({
-  kind: z.literal("jira"),
-  event: z.enum(JIRA_TRIGGER_EVENTS),
-});
+const jiraTriggerSchema = z
+  .strictObject({
+    kind: z.literal("jira"),
+    event: z.enum(JIRA_TRIGGER_EVENTS).describe("Which Jira event fires the workflow."),
+  })
+  .describe(
+    "Run on a Jira event, delivered through the org's Jira connection. No URL and no secret: the " +
+      "platform registers, verifies, renews, and dedupes the site webhook itself.",
+  );
 
 /** Notion semantic trigger events — same discipline as the other providers: curated names the
  *  platform maps to provider events (`page.updated` covers both content and property updates;
@@ -167,10 +225,15 @@ export const NOTION_TRIGGER_EVENTS = ["page.created", "page.updated", "comment.c
 
 /** Fire on a Notion event, delivered through the org's Notion connection — no URL, no secret;
  *  the platform's integration-level webhook receives, verifies, and dedupes every delivery. */
-const notionTriggerSchema = z.strictObject({
-  kind: z.literal("notion"),
-  event: z.enum(NOTION_TRIGGER_EVENTS),
-});
+const notionTriggerSchema = z
+  .strictObject({
+    kind: z.literal("notion"),
+    event: z.enum(NOTION_TRIGGER_EVENTS).describe("Which Notion event fires the workflow."),
+  })
+  .describe(
+    "Run on a Notion event, delivered through the org's Notion connection. Payloads carry ids " +
+      "rather than content, so the workflow fetches what it needs with the org's own credential.",
+  );
 
 const triggerSchema = z.discriminatedUnion("kind", [
   cronTriggerSchema,
@@ -250,8 +313,23 @@ const persistPath = relativePath("persist paths");
 // may legitimately set one, the other, both, or neither, with different templates. Persistence is made
 // safe by the merge, never by serializing (docs/WORKSPACE_PERSISTENCE.md §4, §6.1).
 const workspaceSchema = z.strictObject({
-  persist: z.union([z.boolean(), z.array(persistPath).min(1).max(50)]).optional(),
-  key: z.string().min(1).max(200).optional(),
+  persist: z
+    .union([z.boolean(), z.array(persistPath).min(1).max(50)])
+    .optional()
+    .describe(
+      "Keep `/workspace` between runs so state compounds: `true` for the whole directory, or a " +
+        "list of workspace-relative paths. Omitted: every run starts with an empty workspace.",
+    ),
+  key: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      "Scope the persistent workspace so one workflow keeps several independent states, for " +
+        "example per customer or per repo. A template over the run input, like " +
+        "`${input.customerId}`, resolved when the run is created.",
+    )
+    .optional(),
 });
 
 // ============================================================================
@@ -261,12 +339,32 @@ const workspaceSchema = z.strictObject({
 // Every budget dimension is metered and PAUSABLE: a breach parks the run for approve-resume,
 // never a hard kill. There is deliberately NO `deadline_seconds` wall-clock cap.
 const budgetSchema = z.strictObject({
-  max_tokens: z.number().int().positive().optional(),
-  max_usd: z.number().positive().finite().optional(),
+  max_tokens: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Cap on total model tokens across every `agent()` call in the run."),
+  max_usd: z
+    .number()
+    .positive()
+    .finite()
+    .optional()
+    .describe(
+      "Cap on inference spend in USD. Approximate by design (a guardrail, not the invoice).",
+    ),
   // ACTIVE COMPUTE time — only on-CPU execution counts; a run parked in a long sleep, a
   // human-input gate, or a child-wait does NOT burn this (a run intentionally suspended for a day
   // must not blow its compute budget on resume). This is the runaway / cost cap.
-  max_compute_seconds: z.number().int().positive().optional(),
+  max_compute_seconds: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe(
+      "Cap on active compute seconds. Only on-CPU execution counts: a run parked in a sleep, a " +
+        "human-input gate, or a child wait does not burn it.",
+    ),
 });
 
 // `serial` with no `key` = one run globally; with `key` = one run per resolved key (subsumes the
@@ -275,8 +373,21 @@ const budgetSchema = z.strictObject({
 // The template SYNTAX is checked at deploy (`validateConcurrencyKeyTemplate`, descriptor.ts);
 // value resolution happens at run creation on the control plane, never here.
 const concurrencySchema = z.union([
-  z.strictObject({ mode: z.literal("serial"), key: z.string().min(1).max(200).optional() }),
-  z.strictObject({ mode: z.literal("unlimited") }),
+  z
+    .strictObject({
+      mode: z.literal("serial"),
+      key: z
+        .string()
+        .min(1)
+        .max(200)
+        .describe(
+          "Template over the run input, like `${input.repo}`, resolved when the run is created. " +
+            "Omitted: one run at a time for the whole workflow.",
+        )
+        .optional(),
+    })
+    .describe("One run at a time. With `key`, one run at a time per resolved key."),
+  z.strictObject({ mode: z.literal("unlimited") }).describe("No concurrency limit."),
 ]);
 
 // ============================================================================
@@ -291,17 +402,31 @@ const hostedRunsOnLabel = z.enum([
 
 const hostedRunnerSize = z.enum(["small", "medium", "large", "xlarge"]);
 
-const selfHostedRunsOnSchema = z.strictObject({
-  kind: z.literal("self-hosted"),
-  /** Pool name; omitted ⇒ `"default"` — the pool `boardwalk runner start` creates. */
-  pool: z.string().min(1).max(120).default("default"),
-  labels: z.array(z.string().min(1).max(120)).optional(),
-});
+const selfHostedRunsOnSchema = z
+  .strictObject({
+    kind: z.literal("self-hosted"),
+    /** Pool name; omitted ⇒ `"default"` — the pool `boardwalk runner start` creates. */
+    pool: z
+      .string()
+      .min(1)
+      .max(120)
+      .default("default")
+      .describe("Runner pool to claim from. Default: the pool `boardwalk runner start` creates."),
+    labels: z
+      .array(z.string().min(1).max(120))
+      .optional()
+      .describe("Narrow to runners in the pool carrying all of these labels."),
+  })
+  .describe("Run on your own runners rather than Boardwalk's hosted fleet.");
 
-const hostedRunsOnObjectSchema = z.strictObject({
-  label: hostedRunsOnLabel,
-  size: hostedRunnerSize.optional(),
-});
+const hostedRunsOnObjectSchema = z
+  .strictObject({
+    label: hostedRunsOnLabel.describe("Hosted runner image the run executes on."),
+    size: hostedRunnerSize
+      .optional()
+      .describe("Machine size for the run. Omitted: the platform default."),
+  })
+  .describe("Run on Boardwalk's hosted fleet, choosing the image and the machine size.");
 
 const runsOnSchema = z.union([selfHostedRunsOnSchema, hostedRunsOnObjectSchema, hostedRunsOnLabel]);
 
@@ -319,40 +444,90 @@ const permissionAccess = z.enum(["none", "read", "write"]);
 // `env` reads like injection; it isn't). There is NO `tools` grant: tool selection is per-agent
 // (AgentOptions.tools), declared on the `agent()` call that uses it — one place, no run-level ceiling.
 const permissionsSchema = z.strictObject({
-  id_token: z.enum(["none", "write"]).optional(),
-  artifacts: permissionAccess.optional(),
-  contents: permissionAccess.optional(),
-  secrets: z.array(secretRefSchema).optional(),
+  id_token: z
+    .enum(["none", "write"])
+    .optional()
+    .describe(
+      "Grant the run an OIDC id token (`runtime.idToken`) for keyless auth to third-party clouds.",
+    ),
+  artifacts: permissionAccess
+    .optional()
+    .describe("Access the run has to the org's artifact storage."),
+  contents: permissionAccess
+    .optional()
+    .describe(
+      "Access the run's auto-injected API token has to the org's own workflows, versions, and " +
+        "runs. Omitted: read.",
+    ),
+  secrets: z
+    .array(secretRefSchema)
+    .optional()
+    .describe(
+      "Secrets the program may read with `secrets.get`, and reference from `env` as " +
+        "`${{ secrets.NAME }}`. A secret not listed here is unreadable.",
+    ),
 });
 
 const orgRole = z.enum(["owner", "admin", "member", "viewer"]);
 
 const callableBySchema = z.union([
-  z.strictObject({ roles: z.array(orgRole).min(1) }),
-  z.strictObject({ workflows: z.array(workflowSlug).min(1) }),
-  z.enum(["anyone_in_org", "users_only", "workflows_only"]),
+  z
+    .strictObject({ roles: z.array(orgRole).min(1).describe("Org roles allowed to start a run.") })
+    .describe("Only members holding one of these org roles may start a run."),
+  z
+    .strictObject({
+      workflows: z
+        .array(workflowSlug)
+        .min(1)
+        .describe("Slugs of the workflows allowed to call this one."),
+    })
+    .describe("Only these workflows may call this one through `workflows.call`."),
+  z
+    .enum(["anyone_in_org", "users_only", "workflows_only"])
+    .describe("Who may start a run: anyone in the org, people only, or other workflows only."),
 ]);
 
 const egressSchema = z.union([
-  z.strictObject({
-    level: z.literal("custom"),
-    allow: z.array(z.string().min(1).max(256)).min(1),
-  }),
-  z.strictObject({ level: z.enum(["none", "full"]) }),
+  z
+    .strictObject({
+      level: z.literal("custom"),
+      allow: z
+        .array(z.string().min(1).max(256))
+        .min(1)
+        .describe("Hosts the run may reach. Everything else is blocked."),
+    })
+    .describe("Allow outbound network access to an explicit list of hosts."),
+  z
+    .strictObject({ level: z.enum(["none", "full"]) })
+    .describe("Block all outbound network access, or allow it unrestricted."),
 ]);
 
 const notificationSchema = z.union([
-  z.strictObject({
-    on: z.enum(["completion", "failure", "cancelled"]),
-    channel: z.enum(["email", "webhook"]),
-    target: z.string().min(1).max(2048),
-    template: z.string().max(10_000).optional(),
-  }),
-  z.strictObject({
-    on: z.literal("budget_exceeded"),
-    channel: z.literal("email"),
-    target: z.string().min(1).max(2048),
-  }),
+  z
+    .strictObject({
+      on: z.enum(["completion", "failure", "cancelled"]).describe("Run outcome that notifies."),
+      channel: z.enum(["email", "webhook"]).describe("How to deliver the notification."),
+      target: z
+        .string()
+        .min(1)
+        .max(2048)
+        .describe("Email address or webhook URL the notification goes to."),
+      template: z
+        .string()
+        .max(10_000)
+        .optional()
+        .describe("Custom message body. Omitted: the platform's default."),
+    })
+    .describe("Notify when a run reaches an outcome."),
+  z
+    .strictObject({
+      on: z.literal("budget_exceeded"),
+      channel: z.literal("email"),
+      target: z.string().min(1).max(2048).describe("Email address the notification goes to."),
+    })
+    .describe(
+      "Notify by email when a run parks on a budget cap, so someone can approve resuming it.",
+    ),
 ]);
 
 // ============================================================================
@@ -360,40 +535,114 @@ const notificationSchema = z.union([
 // ============================================================================
 
 export const workflowManifestSchema = z.strictObject({
-  slug: workflowSlug,
-  title: workflowTitle.optional(),
-  description: z.string().max(1000).optional(),
+  slug: workflowSlug.describe(
+    "The workflow's identity: a URL-safe slug of letters, digits, and hyphens, stable for the " +
+      "life of the program. Referenced by the CLI, `workflows.call`, and the API.",
+  ),
+  title: workflowTitle
+    .optional()
+    .describe(
+      "Display label, one line of free text. Omitted: interfaces fall back to a title-cased slug.",
+    ),
+  description: z
+    .string()
+    .max(1000)
+    .optional()
+    .describe("What this workflow does, shown next to the title in listings."),
   // The package-relative file exporting `run`. Omitted ⇒ the language default — `src/index.ts`
   // for TypeScript, `main.py` for Python. Deliberately NOT defaulted in-schema: the default is
   // per-language, and the deploy surface resolves it against the uploaded package.
-  entry: relativePath("entry").optional(),
-  triggers: z.array(triggerSchema).min(1),
+  entry: relativePath("entry")
+    .optional()
+    .describe(
+      "Package-relative file that exports `run`. Omitted: the language default, `src/index.ts` " +
+        "for TypeScript and `main.py` for Python.",
+    ),
+  triggers: z
+    .array(triggerSchema)
+    .min(1)
+    .describe(
+      'How runs of this workflow start. At least one is required; `{ "kind": "manual" }` ' +
+        "covers on-demand runs from the CLI, the console, the API, and other workflows.",
+    ),
   // NO top-level `secrets` — the secret allowlist is `permissions.secrets` (a secret you may read
   // is an access grant). `env` is for value injection (incl. `${{ secrets.NAME }}` of a permitted secret).
-  env: envVarsSchema.optional(),
-  input_schema: jsonSchemaObject.optional(),
-  output_schema: jsonSchemaObject.optional(),
-  workspace: workspaceSchema.optional(),
+  env: envVarsSchema
+    .optional()
+    .describe(
+      "Environment variables set on the run's process. A value may be a whole-value secret " +
+        "reference, written exactly `${{ secrets.NAME }}`, for any secret granted in " +
+        "`permissions.secrets`. Partial interpolation is not supported.",
+    ),
+  input_schema: jsonSchemaObject
+    .optional()
+    .describe(
+      "Derived at build time from `run`'s input signature. Never written in `workflow.jsonc`.",
+    ),
+  output_schema: jsonSchemaObject
+    .optional()
+    .describe(
+      "Derived at build time from `run`'s return signature. Never written in `workflow.jsonc`.",
+    ),
+  workspace: workspaceSchema
+    .optional()
+    .describe("Persistent `/workspace` state that compounds across runs."),
   // Session recording (docs/SCREEN_CAPTURE.md §4.5) is ON by default for every hosted run — the
   // scrub-able history of the run's desktop. The only knob is this opt-out: set `recording: false` to
   // disable it for the whole run (the recording spans the whole run, so a per-session option is the
   // wrong shape). Omitted ⇒ recorded.
-  recording: z.boolean().optional(),
-  budget: budgetSchema.optional(),
-  concurrency: concurrencySchema.default({ mode: "unlimited" }),
+  recording: z
+    .boolean()
+    .optional()
+    .describe(
+      "Session recording of the run's desktop, a scrub-able history of what the run did. On for " +
+        "every hosted run; set false to disable it.",
+    ),
+  budget: budgetSchema
+    .optional()
+    .describe(
+      "Per-run spend caps. Every dimension is pausable: a breach parks the run for " +
+        "approve-resume rather than killing it.",
+    ),
+  concurrency: concurrencySchema
+    .describe("How many runs of this workflow may execute at once.")
+    .default({ mode: "unlimited" }),
   // NO capability fields (tools/mcp/skills/memory) — all per-agent via AgentOptions.
-  runs_on: runsOnSchema.default("boardwalk/linux"),
+  runs_on: runsOnSchema.describe("Which runner executes the run.").default("boardwalk/linux"),
   // Platform-extension fields.
-  container: containerSchema.optional(),
-  permissions: permissionsSchema.optional(),
-  callable_by: callableBySchema.default("anyone_in_org"),
-  egress: egressSchema.optional(),
-  notifications: z.array(notificationSchema).optional(),
+  container: containerSchema
+    .optional()
+    .describe("Run inside a custom container image instead of the runner's default."),
+  permissions: permissionsSchema
+    .optional()
+    .describe(
+      "What the run is allowed to reach: its id token, artifacts, the org's own resources, and " +
+        "the allowlist of secrets the program may read.",
+    ),
+  callable_by: callableBySchema
+    .describe("Who may start a run of this workflow.")
+    .default("anyone_in_org"),
+  egress: egressSchema
+    .optional()
+    .describe("Outbound network policy for the run. Omitted: outbound access is open."),
+  notifications: z
+    .array(notificationSchema)
+    .optional()
+    .describe("Where to send word when a run finishes or parks."),
   // The non-code asset ALLOWLIST: glob patterns (relative, forward-slash) naming files the
   // package ships beyond what the entry imports (prompt templates, fixtures, data files).
   // `skills/**` and `README.md` ride by convention without being listed; `node_modules`,
   // `.git`, `.env*`, and dotfiles are never packaged regardless of any glob.
-  files: z.array(relativePath("files globs")).min(1).max(100).optional(),
+  files: z
+    .array(relativePath("files globs"))
+    .min(1)
+    .max(100)
+    .optional()
+    .describe(
+      "Glob allowlist of non-code files the package ships beyond what the entry imports: prompt " +
+        "templates, fixtures, data files. `skills/**` and `README.md` ride along without being " +
+        "listed. `node_modules`, `.git`, `.env*`, and dotfiles are never packaged.",
+    ),
 });
 
 /** The fully-defaulted, validated manifest — the contract every engine consumes. */

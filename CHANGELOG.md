@@ -4,6 +4,16 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.3.8
+
+### Added
+
+- **Every author-writable manifest field now carries a description.** `workflowManifestSchema` gained
+  `.describe()` on each field, trigger variant, and union member, so `z.toJSONSchema()` emits a
+  documented schema. That schema is published at `https://boardwalk.sh/schemas/workflow.json`, which
+  editors fetch for the `$schema` line `boardwalk init` writes into every `workflow.jsonc`: hovering a
+  field in VS Code now explains it instead of showing nothing. Validation behavior is unchanged.
+
 ## 0.3.7
 
 ### Changed
