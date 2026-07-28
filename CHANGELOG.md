@@ -4,6 +4,24 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.3.3
+
+### Added
+
+- **`github` trigger kind** — `{ "kind": "github", "event", "repos"? }` joins the trigger union.
+  The event vocabulary is semantic, curated names (`pr.opened`, `pr.merged`, `issue.opened`,
+  `issue.commented`, `ci.completed`), each mapping platform-side to a tested provider event +
+  condition — authors never write raw provider actions or payload filters. `repos` narrows to
+  `owner/name` full names; omitted covers every repo the org's GitHub connection includes.
+
+  ```jsonc
+  { "triggers": [{ "kind": "github", "event": "pr.merged", "repos": ["acme/api"] }] }
+  ```
+
+  The descriptor carries no URL and no secret: delivery, signature verification, filtering, and
+  dedupe all happen platform-side through the org's GitHub connection, before any run is created.
+  Exported: `GITHUB_TRIGGER_EVENTS`, `GithubTrigger`, `GithubTriggerEvent`.
+
 ## 0.3.2
 
 ### Added
