@@ -150,6 +150,19 @@ const jiraTriggerSchema = z.strictObject({
   event: z.enum(JIRA_TRIGGER_EVENTS),
 });
 
+/** Notion semantic trigger events — same discipline as the other providers: curated names the
+ *  platform maps to provider events (`page.updated` covers both content and property updates;
+ *  Notion aggregates rapid edits into one delivery), never raw event names. Payloads carry ids,
+ *  not content — the workflow fetches what it needs with the org's own credential. */
+export const NOTION_TRIGGER_EVENTS = ["page.created", "page.updated", "comment.created"] as const;
+
+/** Fire on a Notion event, delivered through the org's Notion connection — no URL, no secret;
+ *  the platform's integration-level webhook receives, verifies, and dedupes every delivery. */
+const notionTriggerSchema = z.strictObject({
+  kind: z.literal("notion"),
+  event: z.enum(NOTION_TRIGGER_EVENTS),
+});
+
 const triggerSchema = z.discriminatedUnion("kind", [
   cronTriggerSchema,
   webhookTriggerSchema,
@@ -158,6 +171,7 @@ const triggerSchema = z.discriminatedUnion("kind", [
   githubTriggerSchema,
   linearTriggerSchema,
   jiraTriggerSchema,
+  notionTriggerSchema,
 ]);
 
 // ============================================================================
@@ -391,6 +405,8 @@ export type LinearTrigger = z.infer<typeof linearTriggerSchema>;
 export type LinearTriggerEvent = (typeof LINEAR_TRIGGER_EVENTS)[number];
 export type JiraTrigger = z.infer<typeof jiraTriggerSchema>;
 export type JiraTriggerEvent = (typeof JIRA_TRIGGER_EVENTS)[number];
+export type NotionTrigger = z.infer<typeof notionTriggerSchema>;
+export type NotionTriggerEvent = (typeof NOTION_TRIGGER_EVENTS)[number];
 export type Concurrency = z.infer<typeof concurrencySchema>;
 export type Budget = z.infer<typeof budgetSchema>;
 export type Workspace = z.infer<typeof workspaceSchema>;

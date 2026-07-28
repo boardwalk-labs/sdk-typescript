@@ -273,6 +273,24 @@ describe("triggers", () => {
     ).toThrow();
   });
 
+  it("accepts every semantic notion event and rejects raw event names/extras", () => {
+    for (const event of ["page.created", "page.updated", "comment.created"]) {
+      expect(parse({ ...MINIMAL, triggers: [{ kind: "notion", event }] }).triggers).toEqual([
+        { kind: "notion", event },
+      ]);
+    }
+    expect(() =>
+      parse({ ...MINIMAL, triggers: [{ kind: "notion", event: "page.content_updated" }] }),
+    ).toThrow();
+    expect(() => parse({ ...MINIMAL, triggers: [{ kind: "notion" }] })).toThrow();
+    expect(() =>
+      parse({
+        ...MINIMAL,
+        triggers: [{ kind: "notion", event: "page.created", pages: ["abc"] }],
+      }),
+    ).toThrow();
+  });
+
   it("accepts every semantic jira event and rejects raw actions/extras", () => {
     for (const event of ["issue.created", "issue.status_changed", "issue.commented"]) {
       expect(parse({ ...MINIMAL, triggers: [{ kind: "jira", event }] }).triggers).toEqual([
