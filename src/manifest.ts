@@ -118,12 +118,29 @@ const githubTriggerSchema = z.strictObject({
   repos: z.array(githubRepoFullName).min(1).max(50).optional(),
 });
 
+/** Linear semantic trigger events — same discipline as GitHub's: curated names the platform maps
+ *  to provider events + conditions (`issue.status_changed` is `Issue`/`update` with a state
+ *  transition), never raw actions. Fires for the workspace the org's Linear connection covers. */
+export const LINEAR_TRIGGER_EVENTS = [
+  "issue.created",
+  "issue.status_changed",
+  "issue.commented",
+] as const;
+
+/** Fire on a Linear event, delivered through the org's Linear connection — no URL, no secret;
+ *  the platform creates and verifies the workspace webhook itself. */
+const linearTriggerSchema = z.strictObject({
+  kind: z.literal("linear"),
+  event: z.enum(LINEAR_TRIGGER_EVENTS),
+});
+
 const triggerSchema = z.discriminatedUnion("kind", [
   cronTriggerSchema,
   webhookTriggerSchema,
   manualTriggerSchema,
   workflowRunTriggerSchema,
   githubTriggerSchema,
+  linearTriggerSchema,
 ]);
 
 // ============================================================================
@@ -353,6 +370,8 @@ export type ManualTrigger = z.infer<typeof manualTriggerSchema>;
 export type WorkflowRunTrigger = z.infer<typeof workflowRunTriggerSchema>;
 export type GithubTrigger = z.infer<typeof githubTriggerSchema>;
 export type GithubTriggerEvent = (typeof GITHUB_TRIGGER_EVENTS)[number];
+export type LinearTrigger = z.infer<typeof linearTriggerSchema>;
+export type LinearTriggerEvent = (typeof LINEAR_TRIGGER_EVENTS)[number];
 export type Concurrency = z.infer<typeof concurrencySchema>;
 export type Budget = z.infer<typeof budgetSchema>;
 export type Workspace = z.infer<typeof workspaceSchema>;

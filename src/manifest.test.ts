@@ -255,6 +255,24 @@ describe("triggers", () => {
     ).toThrow();
   });
 
+  it("accepts every semantic linear event and rejects raw actions/extras", () => {
+    for (const event of ["issue.created", "issue.status_changed", "issue.commented"]) {
+      expect(parse({ ...MINIMAL, triggers: [{ kind: "linear", event }] }).triggers).toEqual([
+        { kind: "linear", event },
+      ]);
+    }
+    expect(() =>
+      parse({ ...MINIMAL, triggers: [{ kind: "linear", event: "Issue.create" }] }),
+    ).toThrow();
+    expect(() => parse({ ...MINIMAL, triggers: [{ kind: "linear" }] })).toThrow();
+    expect(() =>
+      parse({
+        ...MINIMAL,
+        triggers: [{ kind: "linear", event: "issue.created", teams: ["ENG"] }],
+      }),
+    ).toThrow();
+  });
+
   it("rejects a workflow_run with no upstream workflows, a bad conclusion, or an invalid slug", () => {
     expect(() =>
       parse({ ...MINIMAL, triggers: [{ kind: "workflow_run", workflows: [] }] }),
