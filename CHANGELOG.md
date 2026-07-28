@@ -4,6 +4,23 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.3.4
+
+### Added
+
+- **`linear` trigger kind** — `{ "kind": "linear", "event" }` joins the trigger union with the
+  semantic vocabulary `issue.created`, `issue.status_changed`, `issue.commented`. Same discipline
+  as the `github` kind: curated names the platform maps to provider events + conditions
+  (`issue.status_changed` is an issue update whose previous values include the workflow state),
+  never raw actions. The descriptor carries no URL and no secret: connect the workspace once in
+  the console and Boardwalk creates, verifies, and dedupes the workspace webhook itself.
+
+  ```jsonc
+  { "triggers": [{ "kind": "linear", "event": "issue.created" }] }
+  ```
+
+  Exported: `LINEAR_TRIGGER_EVENTS`, `LinearTrigger`, `LinearTriggerEvent`.
+
 ## 0.3.3
 
 ### Added
