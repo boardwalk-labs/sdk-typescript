@@ -4,7 +4,7 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
-## Unreleased
+## 0.3.10
 
 ### Added
 
