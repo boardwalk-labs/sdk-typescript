@@ -22,7 +22,7 @@ patch releases.
   (a natural guess from plain JS) used to reach the host and die with a multi-line schema-validation
   dump; now the SDK rejects it — and negative/NaN numbers, and unparseable duration strings — with
   `sleep() takes milliseconds (a number), a duration string like "15m" or "48h", { durationMs:
-  number }, or { until: ISO string | Date }`. The `installTestHost` fake validates the same way, so
+number }, or { until: ISO string | Date }`. The `installTestHost` fake validates the same way, so
   unit tests catch these instead of production runs.
 
 ## 0.3.8
