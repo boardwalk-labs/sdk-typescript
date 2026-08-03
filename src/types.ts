@@ -289,12 +289,14 @@ export interface BrowserSession {
 export interface BrowserSessionOptions {
   /** Navigate here on open; omit for `about:blank`. */
   startUrl?: string;
-  /** Viewport size; defaults to the ambient desktop resolution. */
+  /** Browser window size, clamped to the ambient desktop resolution (1280×800 on hosted runners —
+   *  the recording can't see past the screen). Defaults to the full desktop. */
   viewport?: { width: number; height: number };
   /**
    * Grounding strategy for agent leaves bound to this session (see the computer-use design). Default
-   * `"auto"` → accessibility-tree refs for a browser (no vision); `"none"` uses raw coordinates (for
-   * models that ground natively); `"vision"` uses a detector; `"a11y"` forces the a11y-ref surface.
+   * `"auto"` → accessibility-tree refs for a browser (no vision); `"a11y"` forces the a11y-ref
+   * surface. `"vision"` (detector) and `"none"` (raw coordinates) belong to the desktop/vision tiers,
+   * which are not built yet — today's runners reject them at `openBrowser`.
    */
   grounding?: "auto" | "a11y" | "vision" | "none";
 }
