@@ -4,6 +4,27 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## Unreleased
+
+### Added
+
+- **`sleep("15m")` — human duration strings.** `sleep` now takes `"90s"` / `"15m"` / `"48h"` /
+  `"7d"` (units `ms`/`s`/`m`/`h`/`d`, decimals allowed), the same shape `humanInput`'s `timeout`
+  already accepted — no more `15 * 60 * 1000` arithmetic. Strings normalize CLIENT-side to
+  `{ durationMs }`, so they work against any host version; the wire format is unchanged.
+- **`workflows.call<T>(…)` — a typed result without the cast.** `call` takes an optional type
+  parameter (`workflows.call<{ count: number }>("tally", input)`); it is the caller's assertion
+  about the callee's output, exactly like the `as` cast it replaces, not validation.
+
+### Changed
+
+- **Malformed `sleep` args fail with a usable one-liner, before the wire.** `sleep({ minutes: 15 })`
+  (a natural guess from plain JS) used to reach the host and die with a multi-line schema-validation
+  dump; now the SDK rejects it — and negative/NaN numbers, and unparseable duration strings — with
+  `sleep() takes milliseconds (a number), a duration string like "15m" or "48h", { durationMs:
+  number }, or { until: ISO string | Date }`. The `installTestHost` fake validates the same way, so
+  unit tests catch these instead of production runs.
+
 ## 0.3.8
 
 ### Added

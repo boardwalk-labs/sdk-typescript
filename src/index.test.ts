@@ -113,7 +113,12 @@ describe("sleep / secrets / phase / artifacts / shell", () => {
     await sleep(50);
     await sleep({ durationMs: 100 });
     await sleep({ until: "2026-07-01T00:00:00Z" });
-    expect(sleepFn).toHaveBeenCalledTimes(3);
+    await sleep("15m"); // duration strings normalize before the stub sees them
+    expect(sleepFn).toHaveBeenCalledTimes(4);
+    expect(sleepFn).toHaveBeenLastCalledWith({ durationMs: 900_000 });
+
+    // The test host validates like a real run: a malformed arg fails the unit test, not prod.
+    await expect(sleep("soon")).rejects.toThrow(/duration/);
 
     installTestHost({}); // no stub: still resolves (a test never actually waits)
     await expect(sleep(10_000)).resolves.toBeUndefined();

@@ -42,6 +42,7 @@ import {
   type ToolDeclaration,
   type UsageSnapshot,
 } from "./protocol.js";
+import { parseDurationMs } from "./duration.js";
 import { encodeCanonical, reviveBySchema } from "./revive.js";
 import type { ShellOptions } from "./shell.js";
 import type {
@@ -67,6 +68,37 @@ const NO_HOST_MESSAGE =
   "@boardwalk-labs/workflow capabilities were called with no host available. Under a " +
   `Boardwalk engine the runner sets ${HOST_SOCK_ENV} and the SDK connects automatically; ` +
   "in unit tests call installTestHost({ ... }) first.";
+
+const SLEEP_USAGE =
+  'sleep() takes milliseconds (a number), a duration string like "15m" or "48h", ' +
+  "{ durationMs: number }, or { until: ISO string | Date }";
+
+/**
+ * Normalize the author-facing {@link SleepArg} to the wire shape. Duration strings are parsed
+ * HERE, client-side, so `sleep("15m")` works against any host version; malformed args throw a
+ * usable one-line message instead of the host's schema-validation dump.
+ */
+export function normalizeSleepArg(arg: SleepArg): SleepWireArg {
+  if (typeof arg === "number") {
+    if (!Number.isFinite(arg) || arg < 0)
+      throw new TypeError(`sleep(${String(arg)}): ${SLEEP_USAGE}`);
+    return arg;
+  }
+  if (typeof arg === "string") {
+    const ms = parseDurationMs(arg);
+    if (ms === null) throw new TypeError(`sleep("${arg}"): not a duration — ${SLEEP_USAGE}`);
+    return { durationMs: ms };
+  }
+  if (typeof arg === "object" && arg !== null && "until" in arg) {
+    return { until: arg.until instanceof Date ? arg.until.toISOString() : arg.until };
+  }
+  // At this point the TYPE says `{ durationMs: number }`, but plain-JS callers can still hand us
+  // anything (`{ minutes: 15 }`) — so keep the runtime check and answer with the usage line.
+  if (typeof arg === "object" && arg !== null && typeof arg.durationMs === "number") {
+    return { durationMs: arg.durationMs };
+  }
+  throw new TypeError(SLEEP_USAGE);
+}
 
 /** What `workflows.call` returns at the host seam — the raw output plus the CALLEE's schema
  *  (`null` for an untyped callee). The `workflows.call` facade applies the revival pass. */
@@ -285,15 +317,7 @@ export class HostClient implements HostInterface {
   }
 
   async sleep(arg: SleepArg): Promise<void> {
-    let wire: SleepWireArg;
-    if (typeof arg === "number") {
-      wire = arg;
-    } else if ("until" in arg) {
-      wire = { until: arg.until instanceof Date ? arg.until.toISOString() : arg.until };
-    } else {
-      wire = { durationMs: arg.durationMs };
-    }
-    await this.request("sleep", { arg: wire });
+    await this.request("sleep", { arg: normalizeSleepArg(arg) });
   }
 
   async humanInput(opts: HumanInputOptions): Promise<HumanInputResult> {
@@ -728,7 +752,9 @@ export function installTestHost(overrides: TestHostOverrides = {}): TestHostHand
       return await fn(slug, input, opts);
     },
     async sleep(arg) {
-      await overrides.sleep?.(arg);
+      // Normalize exactly like the socket client so unit tests reject malformed args (and see
+      // wire-shaped values — `"15m"` arrives as `{ durationMs: 900000 }`) the way a real run does.
+      await overrides.sleep?.(normalizeSleepArg(arg));
     },
     async humanInput(opts) {
       const fn = overrides.humanInput;

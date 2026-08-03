@@ -195,6 +195,25 @@ describe("capability round-trips", () => {
     expect(host.received.at(-1)?.params).toEqual({ arg: { until: "2026-07-01T00:00:00.000Z" } });
   });
 
+  it("sleep parses duration strings client-side to { durationMs } on the wire", async () => {
+    host.handlers["sleep"] = () => ({});
+    await client.sleep("15m");
+    expect(host.received.at(-1)?.params).toEqual({ arg: { durationMs: 900_000 } });
+    await client.sleep("1.5h");
+    expect(host.received.at(-1)?.params).toEqual({ arg: { durationMs: 5_400_000 } });
+  });
+
+  it("sleep rejects malformed args with a usable message, never reaching the wire", async () => {
+    host.handlers["sleep"] = () => ({});
+    const before = host.received.length;
+    await expect(client.sleep("soon")).rejects.toThrow(/duration string like "15m"/);
+    // The `{ minutes: 15 }` guess (plain JS, no type checking) gets the usage line, not a zod dump.
+    await expect(client.sleep({ minutes: 15 } as never)).rejects.toThrow(/durationMs/);
+    await expect(client.sleep(-5)).rejects.toThrow(/milliseconds/);
+    await expect(client.sleep(Number.NaN)).rejects.toThrow(/milliseconds/);
+    expect(host.received.length).toBe(before);
+  });
+
   it("artifacts.write sends bytes as base64 and text as utf8", async () => {
     host.handlers["artifacts.write"] = () => ({
       ref: { id: "art_1", name: "a.bin", url: "https://cdn/a.bin" },
@@ -482,7 +501,7 @@ describe("the author-facing facades over a real socket", () => {
         },
       },
     });
-    const out = (await workflows.call("child", { a: 1 })) as { finishedAt: Date; total: bigint };
+    const out = await workflows.call<{ finishedAt: Date; total: bigint }>("child", { a: 1 });
     expect(out.finishedAt).toBeInstanceOf(Date);
     expect(out.finishedAt.toISOString()).toBe("2026-07-01T00:00:00.000Z");
     expect(out.total).toBe(12n);

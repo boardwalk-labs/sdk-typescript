@@ -359,10 +359,11 @@ export interface ScheduleOptions {
 }
 
 /**
- * How long {@link import("./index.js").sleep} holds the run. A bare number is milliseconds;
- * the object forms are explicit.
+ * How long {@link import("./index.js").sleep} holds the run. A bare number is milliseconds; a
+ * string is a human duration like `"90s"`, `"15m"`, `"48h"`, or `"7d"` (same shape as
+ * `humanInput`'s `timeout`); the object forms are explicit.
  */
-export type SleepArg = number | { durationMs: number } | { until: string | Date };
+export type SleepArg = number | string | { durationMs: number } | { until: string | Date };
 
 /** Options for {@link import("./index.js").phase}, the run-timeline marker. */
 export interface PhaseOptions {

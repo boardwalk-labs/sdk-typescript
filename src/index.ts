@@ -112,11 +112,16 @@ export const workflows = {
    * The child's output arrives REVIVED per the callee's declared output schema — a child
    * returning a `Date` hands you a `Date` (same for `bigint`, `Uint8Array`, `Set`). An untyped
    * callee returns plain JSON, honestly. Caller/callee compatibility is by convention (resolve
-   * by slug; the platform is not a schema registry).
+   * by slug; the platform is not a schema registry). The optional type parameter is that
+   * convention spelled out: `workflows.call<{ count: number }>("tally", input)` types the result
+   * without a hand-written cast — it is an assertion, not validation.
    */
-  async call(slug: string, input: unknown, opts?: CallOptions): Promise<unknown> {
+  async call<T = unknown>(slug: string, input: unknown, opts?: CallOptions): Promise<T> {
     const { output, outputSchema } = await (await getHost()).callWorkflow(slug, input, opts);
-    return reviveBySchema(output, outputSchema);
+    // `T` is the caller's ASSERTION about the callee's output, not a checked contract — the
+    // runtime value is whatever the child returned (revived per its declared schema). Passing a
+    // type parameter only spares the caller a hand-written `as` cast.
+    return reviveBySchema(output, outputSchema) as T;
   },
   /**
    * Trigger another workflow as a fire-and-forget run. Returns the new run's id WITHOUT
@@ -143,11 +148,13 @@ export const workflows = {
 } as const;
 
 /**
- * Pause the run for a duration or until a timestamp. On hosted runners the engine HOLDS the task
- * for short waits and SUSPENDS it for long ones (the machine is snapshotted and released, then
- * restored on wake — locals survive either way, and suspended idle time is not billed). Engines
- * without a snapshot substrate (local dev, self-hosted runners) hold the process for the whole
- * wait. Either way this resolves once the time has elapsed.
+ * Pause the run for a duration or until a timestamp: `sleep("15m")`, `sleep(1500)` (milliseconds),
+ * `sleep({ durationMs })`, or `sleep({ until })`. Duration strings take `ms`/`s`/`m`/`h`/`d`, the
+ * same shape as `humanInput`'s `timeout`. On hosted runners the engine HOLDS the task for short
+ * waits and SUSPENDS it for long ones (the machine is snapshotted and released, then restored on
+ * wake — locals survive either way, and suspended idle time is not billed). Engines without a
+ * snapshot substrate (local dev, self-hosted runners) hold the process for the whole wait. Either
+ * way this resolves once the time has elapsed.
  */
 export async function sleep(arg: SleepArg): Promise<void> {
   await (await getHost()).sleep(arg);
