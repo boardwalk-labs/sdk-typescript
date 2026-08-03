@@ -52,6 +52,8 @@ import type {
   BrowserSession,
   BrowserSessionOptions,
   CallOptions,
+  DesktopSession,
+  DesktopSessionOptions,
   HumanInputOptions,
   HumanInputResult,
   NetworkEntry,
@@ -133,6 +135,7 @@ export interface HostInterface {
     metadata: Record<string, unknown> | undefined,
   ): Promise<ArtifactRef>;
   openBrowser(opts: BrowserSessionOptions | undefined): Promise<BrowserSession>;
+  openDesktop(opts: DesktopSessionOptions | undefined): Promise<DesktopSession>;
   shell(cmd: string, opts: ShellOptions | undefined): Promise<ShellResult>;
   phase(name: string, opts: PhaseOptions | undefined): void;
   idToken(audience: string): Promise<string>;
@@ -358,6 +361,11 @@ export class HostClient implements HostInterface {
     return this.makeBrowserSession(sessionId);
   }
 
+  async openDesktop(opts: DesktopSessionOptions | undefined): Promise<DesktopSession> {
+    const { sessionId } = await this.request("computer.openDesktop", omitUndefined({ opts }));
+    return this.makeDesktopSession(sessionId);
+  }
+
   async shell(cmd: string, opts: ShellOptions | undefined): Promise<ShellResult> {
     return await this.request("shell", { cmd, ...omitUndefined({ opts }) });
   }
@@ -435,6 +443,19 @@ export class HostClient implements HostInterface {
       },
       async close(): Promise<void> {
         await request("computer.browser.close", { sessionId });
+      },
+    };
+  }
+
+  private makeDesktopSession(sessionId: string): DesktopSession {
+    const request = this.request.bind(this);
+    return {
+      id: sessionId,
+      async screenshot(): Promise<ArtifactRef> {
+        return (await request("computer.desktop.screenshot", { sessionId })).ref;
+      },
+      async close(): Promise<void> {
+        await request("computer.desktop.close", { sessionId });
       },
     };
   }
@@ -686,6 +707,7 @@ export interface TestHostOverrides {
   };
   computer?: {
     openBrowser?: (opts?: BrowserSessionOptions) => MaybePromise<BrowserSession>;
+    openDesktop?: (opts?: DesktopSessionOptions) => MaybePromise<DesktopSession>;
   };
   shell?: (cmd: string, opts?: ShellOptions) => MaybePromise<ShellResult>;
   phase?: (name: string, opts?: PhaseOptions) => void;
@@ -777,6 +799,11 @@ export function installTestHost(overrides: TestHostOverrides = {}): TestHostHand
     async openBrowser(opts) {
       const fn = overrides.computer?.openBrowser;
       if (fn === undefined) notStubbed("computer.openBrowser");
+      return await fn(opts);
+    },
+    async openDesktop(opts) {
+      const fn = overrides.computer?.openDesktop;
+      if (fn === undefined) notStubbed("computer.openDesktop");
       return await fn(opts);
     },
     async shell(cmd, opts) {

@@ -36,6 +36,8 @@ import type {
   BrowserSession,
   BrowserSessionOptions,
   CallOptions,
+  DesktopSession,
+  DesktopSessionOptions,
   HumanChoiceResult,
   HumanInputChoiceSpec,
   HumanInputMultiSelectSpec,
@@ -223,6 +225,14 @@ export const computer = {
   async openBrowser(opts?: BrowserSessionOptions): Promise<BrowserSession> {
     return await (await getHost()).openBrowser(opts);
   },
+  /**
+   * Open the run's desktop session (the whole screen, any GUI app). Pass to
+   * `agent(prompt, { session })` for the raw-coordinate desktop tools (needs a GUI-grounder-capable
+   * model). At most one per run; requires a runner with the desktop tier.
+   */
+  async openDesktop(opts?: DesktopSessionOptions): Promise<DesktopSession> {
+    return await (await getHost()).openDesktop(opts);
+  },
 } as const;
 
 /**
@@ -333,6 +343,8 @@ export type {
   ArtifactRef,
   BrowserSession,
   BrowserSessionOptions,
+  DesktopSession,
+  DesktopSessionOptions,
   ConsoleEntry,
   NetworkEntry,
   CallOptions,

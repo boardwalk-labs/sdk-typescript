@@ -218,13 +218,12 @@ export interface AgentOptions {
    */
   maxIterations?: number;
   /**
-   * A computer-use {@link BrowserSession} (from {@link import("./index.js").computer}.openBrowser)
-   * this leaf may drive. When set, the leaf gains that session's tool surface — for a browser
-   * session, in-VM Playwright MCP attached to the session; the program still owns the session and
-   * may drive/inspect it in plain code between leaves. Per-agent. Defaults to none. Requires an
-   * engine with computer-use support (otherwise the session couldn't have been opened).
+   * A computer-use session (`computer.openBrowser` / `computer.openDesktop`) this leaf may drive.
+   * The leaf gains that session's tool surface (browser: in-VM Playwright MCP; desktop: the
+   * raw-coordinate screenshot/click/type/key/scroll/drag tools — needs a GUI-grounder-capable
+   * model, enforced per call). The program still owns the session. Per-agent; defaults to none.
    */
-  session?: BrowserSession;
+  session?: BrowserSession | DesktopSession;
   /**
    * Files to prepend to this leaf's first user message so the model can SEE them — images
    * (`image/*`) and documents (PDFs, …). Each is an {@link AgentAttachment} carrying a `mimeType`
@@ -293,12 +292,31 @@ export interface BrowserSessionOptions {
    *  the recording can't see past the screen). Defaults to the full desktop. */
   viewport?: { width: number; height: number };
   /**
-   * Grounding strategy for agent leaves bound to this session (see the computer-use design). Default
-   * `"auto"` → accessibility-tree refs for a browser (no vision); `"a11y"` forces the a11y-ref
-   * surface. `"vision"` (detector) and `"none"` (raw coordinates) belong to the desktop/vision tiers,
-   * which are not built yet — today's runners reject them at `openBrowser`.
+   * Default `"auto"` → accessibility-tree refs (no vision); `"a11y"` forces that. `"vision"`/`"none"`
+   * belong to the unbuilt vision-augmented path — runners reject them at open. For raw-coordinate
+   * desktop control, open a {@link DesktopSession} instead.
    */
   grounding?: "auto" | "a11y" | "vision" | "none";
+}
+
+/**
+ * The run's desktop session (from `computer.openDesktop`) — the machine's whole screen. The handle
+ * is deliberately thin (launch apps via `shell`); it exists to bind agent tools and take
+ * screenshots. At most one per run; survives suspend/resume.
+ */
+export interface DesktopSession {
+  /** Opaque session id, stable for the session's lifetime. */
+  readonly id: string;
+  /** Capture the screen; stored as an artifact, its {@link ArtifactRef} returned. */
+  screenshot(): Promise<ArtifactRef>;
+  /** Close the session. Idempotent; a session left open is reaped at run end. */
+  close(): Promise<void>;
+}
+
+/** Options for {@link import("./index.js").computer}.openDesktop. */
+export interface DesktopSessionOptions {
+  /** A desktop session is raw-coordinates-only, so `"auto"` and `"none"` mean the same thing. */
+  grounding?: "auto" | "none";
 }
 
 /** A browser console entry, from {@link BrowserSession.console}. */

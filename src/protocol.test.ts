@@ -259,6 +259,23 @@ describe("capability methods", () => {
     });
   });
 
+  it("computer.openDesktop yields a sessionId; ops are keyed by it; grounding is auto/none only", () => {
+    roundTrip(clientToHostRequests["computer.openDesktop"].result, { sessionId: "desk_1" });
+    roundTrip(clientToHostRequests["computer.openDesktop"].params, {
+      opts: { grounding: "none" },
+    });
+    expect(
+      clientToHostRequests["computer.openDesktop"].params.safeParse({
+        opts: { grounding: "a11y" },
+      }).success,
+    ).toBe(false);
+    roundTrip(clientToHostRequests["computer.desktop.screenshot"].params, { sessionId: "desk_1" });
+    roundTrip(clientToHostRequests["computer.desktop.screenshot"].result, {
+      ref: { id: "art_1", name: "shot.png", url: "https://cdn/shot.png" },
+    });
+    roundTrip(clientToHostRequests["computer.desktop.close"].params, { sessionId: "desk_1" });
+  });
+
   it("shell results carry exitCode + stdout + stderr", () => {
     roundTrip(shellResultSchema, { exitCode: 0, stdout: "ok", stderr: "" });
     roundTrip(shellResultSchema, { exitCode: 3, stdout: "", stderr: "boom" });

@@ -279,6 +279,29 @@ describe("capability round-trips", () => {
     await expect(session.url()).resolves.toBe("https://example.com/");
   });
 
+  it("a desktop session's ops are keyed by its sessionId", async () => {
+    host.handlers["computer.openDesktop"] = (params) => {
+      expect(params).toEqual({ opts: { grounding: "auto" } });
+      return { sessionId: "desk_9" };
+    };
+    host.handlers["computer.desktop.screenshot"] = (params) => {
+      expect(params).toEqual({ sessionId: "desk_9" });
+      return { ref: { id: "art_1", name: "shot.png", url: "https://cdn/shot.png" } };
+    };
+    host.handlers["computer.desktop.close"] = (params) => {
+      expect(params).toEqual({ sessionId: "desk_9" });
+      return {};
+    };
+    const session = await client.openDesktop({ grounding: "auto" });
+    expect(session.id).toBe("desk_9");
+    await expect(session.screenshot()).resolves.toEqual({
+      id: "art_1",
+      name: "shot.png",
+      url: "https://cdn/shot.png",
+    });
+    await session.close();
+  });
+
   it("a host error response rejects with a HostError carrying the taxonomy code", async () => {
     host.handlers["secrets.get"] = () => {
       throw Object.assign(new Error("budget exhausted"), { code: "BUDGET_EXCEEDED" });

@@ -4,6 +4,17 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## Unreleased
+
+### Added
+
+- **`computer.openDesktop()` — the desktop tier of computer use.** Returns a thin
+  `DesktopSession` (`id`, `screenshot()`, `close()`); pass it to `agent(prompt, { session })`
+  to give a leaf the raw-coordinate desktop tools (screenshot/click/type/key/scroll/drag).
+  Options: `grounding: "auto" | "none"` (both mean raw coordinates). At most one desktop
+  session per run. `AgentOptions.session` widens to `BrowserSession | DesktopSession`; new
+  wire methods `computer.openDesktop` + `computer.desktop.{screenshot,close}`.
+
 ## 0.3.9
 
 ### Added

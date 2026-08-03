@@ -16,7 +16,7 @@ import {
   usage,
   workflows,
 } from "./index.js";
-import type { BrowserSession, Context, ShellResult } from "./index.js";
+import type { BrowserSession, Context, DesktopSession, ShellResult } from "./index.js";
 import { resetHost } from "./host_client.js";
 
 const HOST_SOCK_ENV = "BOARDWALK_HOST_SOCK";
@@ -178,6 +178,25 @@ describe("computer.openBrowser", () => {
     expect(openBrowser).toHaveBeenCalledWith({ startUrl: "https://example.com" });
     await agent("drive it", { session: s });
     expect(agentFn).toHaveBeenCalledWith("drive it", { session });
+  });
+});
+
+describe("computer.openDesktop", () => {
+  it("delegates (forwarding opts) and passes the session through agent({ session })", async () => {
+    const session = { id: "desk_1" } as unknown as DesktopSession;
+    const openDesktop = vi.fn().mockResolvedValue(session);
+    const agentFn = vi.fn().mockResolvedValue("done");
+    installTestHost({ agent: agentFn, computer: { openDesktop } });
+
+    const s = await computer.openDesktop({ grounding: "none" });
+    expect(openDesktop).toHaveBeenCalledWith({ grounding: "none" });
+    await agent("drive it", { session: s });
+    expect(agentFn).toHaveBeenCalledWith("drive it", { session });
+  });
+
+  it("throws a clear not-stubbed error when the override is missing", async () => {
+    installTestHost({});
+    await expect(computer.openDesktop()).rejects.toThrow(/computer\.openDesktop is not stubbed/);
   });
 });
 

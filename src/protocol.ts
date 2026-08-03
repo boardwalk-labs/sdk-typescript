@@ -411,6 +411,10 @@ const browserSessionOptionsWireSchema = z.strictObject({
   grounding: z.enum(["auto", "a11y", "vision", "none"]).optional(),
 });
 
+const desktopSessionOptionsWireSchema = z.strictObject({
+  grounding: z.enum(["auto", "none"]).optional(),
+});
+
 const consoleEntryWireSchema = z.strictObject({
   level: z.enum(["log", "info", "warn", "error", "debug"]),
   text: z.string(),
@@ -594,6 +598,19 @@ export const clientToHostRequests = {
     result: z.strictObject({ value: jsonValueSchema }),
   },
   "computer.browser.close": {
+    params: z.strictObject(sessionScoped),
+    result: emptyResult,
+  },
+  /** Opens THE run's desktop session (at most one per run); desktop ops are `computer.desktop.*`. */
+  "computer.openDesktop": {
+    params: z.strictObject({ opts: desktopSessionOptionsWireSchema.optional() }),
+    result: z.strictObject({ sessionId: z.string().min(1) }),
+  },
+  "computer.desktop.screenshot": {
+    params: z.strictObject(sessionScoped),
+    result: z.strictObject({ ref: artifactRefSchema }),
+  },
+  "computer.desktop.close": {
     params: z.strictObject(sessionScoped),
     result: emptyResult,
   },

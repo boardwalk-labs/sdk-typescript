@@ -80,7 +80,10 @@ interface ArtifactRef {
   url: string;
 }
 
-const computer: { openBrowser(opts?: BrowserSessionOptions): Promise<BrowserSession> };
+const computer: {
+  openBrowser(opts?: BrowserSessionOptions): Promise<BrowserSession>;
+  openDesktop(opts?: DesktopSessionOptions): Promise<DesktopSession>; // whole screen; at most one per run
+};
 
 function shell(cmd: string, opts?: ShellOptions): Promise<ShellResult>; // { exitCode, stdout, stderr };
 // a non-zero exit RESOLVES (check exitCode) — only a command that could not run rejects
@@ -186,7 +189,7 @@ Every capability import is a thin facade over a local **JSON-RPC 2.0 protocol** 
 Method categories (one zod params/result schema per method, exported via `/runtime`):
 
 - **Loader-only** (SDK infrastructure that brackets the run — never author API): `bootstrap` (`{}` → `{input, context}`; the context payload is DATA ONLY — the client synthesizes `context.signal` locally) and `report_return` (`{value}` → `{}`; the loader reports `run`'s return, `void` ⇒ `null`).
-- **Author capabilities** (client → host requests): `agent`, `workflows.call` (result carries the callee's nullable `output_schema` for the revival pass), `workflows.run`, `workflows.schedule`, `sleep`, `humanInput`, `secrets.get`, `artifacts.write`, `computer.openBrowser` (+ the session-scoped `computer.browser.*` sub-namespace keyed by `sessionId`), `shell`, `auth.idToken`, `auth.apiToken`, `usage.get`.
+- **Author capabilities** (client → host requests): `agent`, `workflows.call` (result carries the callee's nullable `output_schema` for the revival pass), `workflows.run`, `workflows.schedule`, `sleep`, `humanInput`, `secrets.get`, `artifacts.write`, `computer.openBrowser` (+ the session-scoped `computer.browser.*` sub-namespace keyed by `sessionId`), `computer.openDesktop` (+ `computer.desktop.*`, same pattern), `shell`, `auth.idToken`, `auth.apiToken`, `usage.get`.
 - **Client → host notification:** `phase` (fire-and-forget marker).
 - **Host → client request** (full-duplex): `tool_invoke` `{call_id, tool, input}` → `{output}` — how an inline `agent()` tool runs. `opts.tools` crosses as **declarations only** (`{name, description, input_schema}`); the handler stays in the program process, keyed per agent call (`call_id` = the originating `agent` request's JSON-RPC id, as a string). Invocations multiplex + dispatch concurrently; a handler throw returns a JSON-RPC error the host feeds to the model as a tool-error result — never run-fatal; a late response to an abandoned invocation is discarded by id.
 - **Host → client notification:** `cancel` — the SDK aborts `context.signal`.
