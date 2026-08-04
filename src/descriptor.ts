@@ -14,8 +14,9 @@
 //
 // Also here: `validateConcurrencyKeyTemplate` — the deploy-time SYNTAX check for the
 // `concurrency.key` template language (`${input.<path>}` interpolations, each path a restricted
-// accessor rooted at `input`: dotted fields + `[index]` only). VALUE resolution against a run's
-// input happens at run creation on the control plane — deliberately not implemented here.
+// accessor rooted at `input`: dotted fields + `[index]` only, optionally with a `?? "literal"`
+// fallback). VALUE resolution against a run's input happens at run creation on the control
+// plane — deliberately not implemented here.
 
 import { workflowManifestSchema, type WorkflowManifest } from "./manifest.js";
 
@@ -181,7 +182,7 @@ export function parseWorkflowDescriptor(text: string): WorkflowDescriptor {
   // questions (which workspace do I compound into, versus how many runs may run at once), so each is
   // checked on its own and neither implies the other.
   const { concurrency, workspace } = result.data;
-  if (concurrency.mode === "serial" && concurrency.key !== undefined) {
+  if (concurrency.mode !== "unlimited" && concurrency.key !== undefined) {
     assertKeyTemplate("concurrency.key", concurrency.key);
   }
   if (workspace?.key !== undefined) {
@@ -222,8 +223,13 @@ const INDEX_RE = /^(?:0|[1-9][0-9]*)$/;
  * no arbitrary expressions: pure data access, so the control plane resolves it without a
  * sandbox and tenant code never runs. Returns every problem found (empty array = valid).
  *
- * VALUE resolution against a run's input happens at run creation on the control plane — an
- * unresolvable or non-scalar path fails the create there, not here.
+ * An interpolation may carry a FALLBACK: `${input.repo.full_name ?? 'none'}` uses the quoted
+ * literal when the path is missing or null. Without it, a keyed workflow behind a webhook fails
+ * every delivery that legitimately lacks the field (a GitHub App's `ping`, an installation
+ * lifecycle event), manufacturing failed runs out of design-correct traffic.
+ *
+ * VALUE resolution against a run's input happens at run creation on the control plane — a path
+ * that is missing with no fallback, or resolves to an object/array, fails the create there, not here.
  */
 export function validateConcurrencyKeyTemplate(template: string): ConcurrencyKeyTemplateIssue[] {
   const issues: ConcurrencyKeyTemplateIssue[] = [];
@@ -242,12 +248,58 @@ export function validateConcurrencyKeyTemplate(template: string): ConcurrencyKey
       });
       break; // The rest of the template is inside the unterminated interpolation.
     }
-    const path = template.slice(open + 2, close).trim();
+    const { path, fallback } = splitFallback(template.slice(open + 2, close));
+    if (fallback !== null) {
+      const fallbackIssue = validateFallbackLiteral(fallback, open);
+      if (fallbackIssue !== null) issues.push(fallbackIssue);
+    }
     const pathIssue = validateAccessorPath(path, open);
     if (pathIssue !== null) issues.push(pathIssue);
     i = close + 1;
   }
   return issues;
+}
+
+/**
+ * Split one interpolation's body at its FIRST `??` into the path and the raw fallback text (null
+ * when there is no `??`). Both sides are trimmed; neither is validated here. Shared with the
+ * control-plane resolver by contract — the two must agree on where the path ends, or a template
+ * that deploys cleanly fails at run creation.
+ */
+export function splitFallback(body: string): { path: string; fallback: string | null } {
+  const at = body.indexOf("??");
+  if (at === -1) return { path: body.trim(), fallback: null };
+  return { path: body.slice(0, at).trim(), fallback: body.slice(at + 2).trim() };
+}
+
+/**
+ * A fallback is a quoted literal with no quotes or backslashes inside — deliberately the dumbest
+ * thing that works, since it lands in a lane name and a storage-path digest. SINGLE quotes are
+ * accepted alongside double, and are the ergonomic choice: the template lives inside a JSON string,
+ * where `'none'` needs no escaping and `"none"` becomes `\"none\"`.
+ */
+const FALLBACK_LITERAL_RE = /^(?:"[^"\\]+"|'[^'\\]+')$/;
+
+function validateFallbackLiteral(
+  fallback: string,
+  index: number,
+): ConcurrencyKeyTemplateIssue | null {
+  if (FALLBACK_LITERAL_RE.test(fallback)) return null;
+  if (fallback === "") {
+    return { index, message: "`??` needs a fallback value — write `?? 'none'`" };
+  }
+  if (fallback === '""' || fallback === "''") {
+    return {
+      index,
+      message: "the fallback cannot be empty — a lane name needs at least one character",
+    };
+  }
+  return {
+    index,
+    message:
+      `\`${fallback}\` is not a valid fallback — it must be a quoted literal ` +
+      "with no quotes or backslashes inside (e.g. `?? 'none'`)",
+  };
 }
 
 /** Check one `${...}` path. `index` is the interpolation's start, used for issue positions. */

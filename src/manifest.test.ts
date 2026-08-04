@@ -113,6 +113,17 @@ describe("concurrency", () => {
     expect(m.concurrency).toEqual({ mode: "serial", key: "refund-${input.customerId}" });
   });
 
+  it("accepts latest_wins, with or without a key", () => {
+    expect(parse({ ...MINIMAL, concurrency: { mode: "latest_wins" } }).concurrency).toEqual({
+      mode: "latest_wins",
+    });
+    const m = parse({
+      ...MINIMAL,
+      concurrency: { mode: "latest_wins", key: "${input.repo ?? 'none'}" },
+    });
+    expect(m.concurrency).toEqual({ mode: "latest_wins", key: "${input.repo ?? 'none'}" });
+  });
+
   it("rejects the deleted serial_by_key mode", () => {
     expect(() =>
       parse({ ...MINIMAL, concurrency: { mode: "serial_by_key", key: "${input.id}" } }),

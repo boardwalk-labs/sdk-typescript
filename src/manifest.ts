@@ -387,6 +387,29 @@ const concurrencySchema = z.union([
         .optional(),
     })
     .describe("One run at a time. With `key`, one run at a time per resolved key."),
+  // Same lane as `serial`, different queue discipline. `serial` is FIFO: a burst of 20 events runs
+  // all 20 in order, most of them against state the next event already invalidated. `latest_wins`
+  // keeps only the newest waiting run per lane, which is what a level-triggered consumer (rebuild
+  // this repo, re-sync this customer) actually wants — the work is idempotent and the freshest
+  // input subsumes every stale one. A RUNNING run is never touched: it is already doing work, and
+  // killing in-flight work is a different decision the author makes in their own code.
+  z
+    .strictObject({
+      mode: z.literal("latest_wins"),
+      key: z
+        .string()
+        .min(1)
+        .max(200)
+        .describe(
+          "Template over the run input, like `${input.repo}`, resolved when the run is created. " +
+            "Omitted: one lane for the whole workflow.",
+        )
+        .optional(),
+    })
+    .describe(
+      "One run at a time, and a new run replaces the ones still waiting in its lane rather than " +
+        "queueing behind them. A run already executing is left alone.",
+    ),
   z.strictObject({ mode: z.literal("unlimited") }).describe("No concurrency limit."),
 ]);
 

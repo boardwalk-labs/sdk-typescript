@@ -4,6 +4,36 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.3.11
+
+### Added
+
+- **`concurrency: { mode: "latest_wins" }` — a lane that keeps the newest waiting run.**
+  `serial` is FIFO, so a burst of 20 deliveries runs all 20 in order, most of them against state
+  the next delivery already invalidated. `latest_wins` holds the same one-at-a-time lane (with the
+  same optional `key`) but a new run REPLACES the runs still waiting in its lane instead of
+  queueing behind them — what a level-triggered consumer (rebuild this repo, re-sync this
+  customer) actually wants. A run already executing is never touched: killing in-flight work is a
+  separate decision an author makes in their own code.
+- **`?? 'fallback'` in a `concurrency.key` / `workspace.key` template.**
+  `${input.repository.full_name ?? 'none'}` uses the quoted literal when the path is missing or
+  null. Without it, a keyed workflow behind a webhook failed every delivery that legitimately
+  lacks the field (a GitHub App's `ping`, installation lifecycle events), manufacturing failed
+  runs out of design-correct traffic. Single quotes are accepted alongside double and are the
+  ergonomic choice, since the template lives inside a JSON string. The path side is unchanged:
+  still dotted fields and `[index]` only.
+- **`context.trigger.event` — the sender's own name for a webhook delivery.** Present on
+  `webhook` runs whose endpoint uses a verifier preset that defines where the event name lives
+  (GitHub's `X-GitHub-Event` and the equivalents); absent otherwise. A webhook program receives
+  the body verbatim as its input, so this replaces sniffing the body's shape to tell a
+  `pull_request` delivery from a `ping` — a reimplementation every consumer of a given provider
+  was writing for itself.
+
+### Fixed
+
+- The `concurrency.key` template syntax check was gated on `mode === "serial"`, so a key on any
+  other mode would have skipped validation entirely.
+
 ## 0.3.10
 
 ### Added

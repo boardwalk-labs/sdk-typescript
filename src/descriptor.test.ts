@@ -5,6 +5,7 @@ import {
   DescriptorValidationError,
   parseJsonc,
   parseWorkflowDescriptor,
+  splitFallback,
   validateConcurrencyKeyTemplate,
 } from "./descriptor.js";
 
@@ -116,6 +117,27 @@ describe("parseWorkflowDescriptor", () => {
     expect(d.files).toEqual(["prompts/**"]);
     expect(d.budget).toEqual({ max_usd: 5, max_compute_seconds: 1200 });
     expect(d.concurrency).toEqual({ mode: "serial", key: "refund-${input.customerId}" });
+  });
+
+  it("accepts the latest_wins lane mode and validates ITS key template too", () => {
+    const d = parseWorkflowDescriptor(`{
+      "slug": "ci-watcher",
+      "triggers": [{ "kind": "webhook", "name": "github" }],
+      "concurrency": { "mode": "latest_wins", "key": "\${input.repository.full_name ?? 'none'}" },
+    }`);
+    expect(d.concurrency).toEqual({
+      mode: "latest_wins",
+      key: "${input.repository.full_name ?? 'none'}",
+    });
+    // A bad template under latest_wins is caught exactly as under serial — the check used to be
+    // gated on mode === "serial", so a third mode would have skipped it silently.
+    expect(() =>
+      parseWorkflowDescriptor(`{
+        "slug": "ci-watcher",
+        "triggers": [{ "kind": "manual" }],
+        "concurrency": { "mode": "latest_wins", "key": "\${repo}" },
+      }`),
+    ).toThrow(/concurrency.key template is invalid/);
   });
 
   it("rejects a hand-written input_schema with a build-derived message", () => {
@@ -296,6 +318,59 @@ describe("validateConcurrencyKeyTemplate", () => {
     expect(issues).toHaveLength(2);
     expect(issues[0]?.message).toMatch(/rooted at `input`/);
     expect(issues[1]?.message).toMatch(/function calls/);
+  });
+
+  it("accepts a `?? 'literal'` fallback in either quote style", () => {
+    for (const valid of [
+      "${input.repo.full_name ?? 'none'}", // single quotes: what an author writes inside JSON
+      '${input.repo.full_name ?? "none"}',
+      "${input.a??'x'}", // no whitespace at all
+      "${ input.items[0].sku ?? 'unknown sku' }",
+      "repo-${input.repo ?? 'none'}-${input.branch ?? 'main'}",
+    ]) {
+      expect(validateConcurrencyKeyTemplate(valid)).toEqual([]);
+    }
+  });
+
+  it("rejects a fallback that is not a plain quoted literal", () => {
+    expect(validateConcurrencyKeyTemplate("${input.a ?? none}")[0]?.message).toMatch(
+      /quoted literal/,
+    );
+    // A second path as the fallback would need value resolution of two paths; one is the contract.
+    expect(validateConcurrencyKeyTemplate("${input.a ?? input.b}")[0]?.message).toMatch(
+      /quoted literal/,
+    );
+    expect(validateConcurrencyKeyTemplate("${input.a ?? 'no\\'pe'}")[0]?.message).toMatch(
+      /quoted literal/,
+    );
+  });
+
+  it("rejects an empty or missing fallback value", () => {
+    expect(validateConcurrencyKeyTemplate("${input.a ??}")[0]?.message).toMatch(
+      /needs a fallback value/,
+    );
+    expect(validateConcurrencyKeyTemplate("${input.a ?? ''}")[0]?.message).toMatch(
+      /cannot be empty/,
+    );
+  });
+
+  it("still validates the PATH side of a fallback interpolation", () => {
+    const issues = validateConcurrencyKeyTemplate("${customerId ?? 'none'}");
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.message).toMatch(/rooted at `input`/);
+  });
+
+  it("keeps a single `?` an operator error, not a fallback", () => {
+    expect(validateConcurrencyKeyTemplate("${input.a ? 1 : 2}")[0]?.message).toMatch(/operators/);
+  });
+});
+
+describe("splitFallback", () => {
+  it("splits at the first `??` and trims both sides", () => {
+    expect(splitFallback(' input.a ?? "x" ')).toEqual({ path: "input.a", fallback: '"x"' });
+    expect(splitFallback("input.a")).toEqual({ path: "input.a", fallback: null });
+    // First `??` wins, so a fallback containing `??` keeps it verbatim (and fails the literal check).
+    expect(splitFallback('input.a ?? "x" ?? "y"').fallback).toBe('"x" ?? "y"');
   });
 });
 

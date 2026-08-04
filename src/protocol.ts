@@ -203,6 +203,17 @@ export const triggerInfoSchema = z.strictObject({
   firedAt: z.number().int().nonnegative(),
   /** Trigger-specific source (e.g. the webhook id / cron schedule id / subscription id). */
   source: z.string().min(1).optional(),
+  /**
+   * The SENDER's own name for this delivery, when the endpoint's verifier preset defines where to
+   * find it (GitHub `X-GitHub-Event`, Linear/Sentry/PagerDuty their equivalents). Present only on
+   * `webhook` runs from such a preset — a generic endpoint carries no event name, and no other
+   * trigger kind has one.
+   *
+   * A webhook program receives the sender's body verbatim as its input, so without this the only
+   * way to tell a `pull_request` delivery from a `ping` was to sniff the body's shape, which every
+   * consumer of the same provider then reimplements.
+   */
+  event: z.string().min(1).max(200).optional(),
 });
 export type TriggerInfo = z.infer<typeof triggerInfoSchema>;
 

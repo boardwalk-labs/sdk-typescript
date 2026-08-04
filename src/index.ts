@@ -412,6 +412,9 @@ export {
   parseJsonc,
   parseWorkflowDescriptor,
   validateConcurrencyKeyTemplate,
+  // Exported for the control-plane resolver: the two must split an interpolation at the same
+  // place, or a template that deploys cleanly fails when a run is created.
+  splitFallback,
   DescriptorValidationError,
   DEFAULT_ENTRY_SOURCES,
   PYTHON_DEFAULT_ENTRY,

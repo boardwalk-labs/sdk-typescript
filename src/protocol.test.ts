@@ -142,6 +142,26 @@ describe("loader-only methods", () => {
     }
   });
 
+  it("context carries the sender's event name on a webhook trigger, and tolerates its absence", () => {
+    // A webhook program gets the sender's body verbatim as input, so the event name is the only
+    // thing telling a `pull_request` delivery from a `ping` without sniffing the body's shape.
+    roundTrip(contextDataSchema, {
+      ...context,
+      trigger: { kind: "webhook", firedAt: 1750000000000, source: "wh_1", event: "pull_request" },
+    });
+    // Optional: a generic endpoint (and every non-webhook kind) sends none.
+    roundTrip(contextDataSchema, {
+      ...context,
+      trigger: { kind: "cron", firedAt: 1750000000000 },
+    });
+    expect(
+      contextDataSchema.safeParse({
+        ...context,
+        trigger: { ...context.trigger, event: "" },
+      }).success,
+    ).toBe(false);
+  });
+
   it("context rejects a fourth trigger kind (the two-axis rule: actor says the rest)", () => {
     expect(
       contextDataSchema.safeParse({
