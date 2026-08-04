@@ -142,22 +142,34 @@ describe("loader-only methods", () => {
     }
   });
 
-  it("context carries the sender's event name on a webhook trigger, and tolerates its absence", () => {
-    // A webhook program gets the sender's body verbatim as input, so the event name is the only
-    // thing telling a `pull_request` delivery from a `ping` without sniffing the body's shape.
+  it("context carries the HTTP request on a webhook trigger, and tolerates its absence", () => {
+    // `input` is the body; this is everything else the wire carried, so a program can read the
+    // sender's own event name (a header for GitHub, the body for Stripe) without the platform
+    // curating a field per vendor.
     roundTrip(contextDataSchema, {
       ...context,
-      trigger: { kind: "webhook", firedAt: 1750000000000, source: "wh_1", event: "pull_request" },
+      trigger: {
+        kind: "webhook",
+        firedAt: 1750000000000,
+        source: "wh_1",
+        request: {
+          method: "POST",
+          path: "/v1/webhooks/wh_1",
+          query: {},
+          headers: { "x-github-event": "pull_request", "content-type": "application/json" },
+        },
+      },
     });
-    // Optional: a generic endpoint (and every non-webhook kind) sends none.
+    // Optional: every non-webhook kind sends none.
     roundTrip(contextDataSchema, {
       ...context,
       trigger: { kind: "cron", firedAt: 1750000000000 },
     });
+    // Strict: a partial request object is a producer bug, not something to half-accept.
     expect(
       contextDataSchema.safeParse({
         ...context,
-        trigger: { ...context.trigger, event: "" },
+        trigger: { ...context.trigger, request: { method: "POST" } },
       }).success,
     ).toBe(false);
   });

@@ -204,16 +204,33 @@ export const triggerInfoSchema = z.strictObject({
   /** Trigger-specific source (e.g. the webhook id / cron schedule id / subscription id). */
   source: z.string().min(1).optional(),
   /**
-   * The SENDER's own name for this delivery, when the endpoint's verifier preset defines where to
-   * find it (GitHub `X-GitHub-Event`, Linear/Sentry/PagerDuty their equivalents). Present only on
-   * `webhook` runs from such a preset — a generic endpoint carries no event name, and no other
-   * trigger kind has one.
+   * The HTTP request the delivery arrived as — present on `webhook` runs, absent on every other
+   * kind. `input` is the BODY, which is what a program almost always wants; this is everything else
+   * the wire carried, so a program can read what the sender put outside it without the platform
+   * having to know who the sender is.
    *
-   * A webhook program receives the sender's body verbatim as its input, so without this the only
-   * way to tell a `pull_request` delivery from a `ping` was to sniff the body's shape, which every
-   * consumer of the same provider then reimplements.
+   * That last part is the point. Senders disagree about where they name the event: GitHub uses the
+   * `x-github-event` header, Shopify `x-shopify-topic`, Stripe a `type` field in the body, some
+   * services a query parameter. A platform that curates one field per vendor needs a code change
+   * per sender; handing over the request needs none.
+   *
+   *   const event = context.trigger.request?.headers["x-github-event"];
+   *
+   * Header names are LOWER-CASED (HTTP treats them case-insensitively). Whatever authenticated the
+   * delivery is removed before it gets here — the verification header for the endpoint's scheme,
+   * plus `authorization` / `cookie` / `proxy-authorization` — so a program never sees the credential
+   * the sender used to reach it. Large headers are dropped rather than truncated.
    */
-  event: z.string().min(1).max(200).optional(),
+  request: z
+    .strictObject({
+      method: z.string().min(1).max(16),
+      path: z.string().max(2048),
+      /** Query parameters, exactly as sent. */
+      query: z.record(z.string(), z.string()),
+      /** Lower-cased header names → values, credential headers removed. */
+      headers: z.record(z.string(), z.string()),
+    })
+    .optional(),
 });
 export type TriggerInfo = z.infer<typeof triggerInfoSchema>;
 

@@ -4,6 +4,33 @@ Notable changes to `@boardwalk-labs/workflow` — the workflow authoring contrac
 the `meta` → manifest schema, the run-event wire format). Pre-1.0, additive changes ship as
 patch releases.
 
+## 0.3.12
+
+### Changed — `context.trigger.request` replaces `context.trigger.event`
+
+0.3.11 gave a webhook program the sender's event name, resolved from a per-preset header table on
+the control plane. That table was the problem: every sender we hadn't heard of got nothing, and
+adding one meant a platform release. Verification is where senders genuinely differ; the delivery
+itself is just an HTTP request, and it now reaches the program as one.
+
+```ts
+const event = context.trigger.request?.headers["x-github-event"]; // GitHub
+const topic = context.trigger.request?.headers["x-shopify-topic"]; // Shopify
+const kind = input.type; // Stripe: it's in the body
+```
+
+`request` carries `{ method, path, query, headers }` and is present only on `webhook` runs.
+`input` is unchanged — still the sender's body verbatim. Header names are lower-cased, since HTTP
+treats them case-insensitively.
+
+Whatever authenticated the delivery is removed before the program sees it: the verification header
+for the endpoint's scheme, plus `authorization` / `cookie` / `proxy-authorization`. A program never
+sees the credential the sender used to reach it.
+
+`trigger.event` is **removed**, not deprecated. It existed for a matter of hours, only ever on a
+dev control plane, and nothing could have depended on it; leaving a field that is never populated
+is worse than withdrawing one nobody has.
+
 ## 0.3.11
 
 ### Added
